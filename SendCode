@@ -1,51 +1,69 @@
--- Get the wireless modem
 local modem = peripheral.find("modem")
+local monitor = peripheral.find("monitor")
 
--- Check if the modem is connected
-if not modem then
-    print("No modem found.")
-    return
+local videoFile = "/video1.nfv"  -- The video file for the first computer
+
+-- Function to load video data from a file
+local function loadVideo(videoFile)
+    local videoData = {}
+    for line in io.lines(videoFile) do
+        table.insert(videoData, line)
+    end
+
+    -- Get resolution and fps from the first line
+    local resolution = { videoData[1]:match("(%d+) (%d+)") }
+    local fps = tonumber(videoData[1]:match("%d+ %d+ (%d+)"))
+    table.remove(videoData, 1)  -- Remove the first line, which is metadata
+
+    return videoData, resolution, fps
 end
 
--- Open the modem on a specific channel (channel 100)
+-- Function to display the next frame
+local function nextFrame(videoData, resolution, fps, frameIndex)
+    local frame = {}
+    for i = 1, resolution[2] do
+        if frameIndex + i > #videoData then
+            return false, frameIndex  -- End of video, return false to stop
+        end
+        table.insert(frame, videoData[frameIndex + i])
+    end
+    local parsedFrame = paintutils.parseImage(table.concat(frame, "\n"))
+    frameIndex = frameIndex + resolution[2]
+    paintutils.drawImage(parsedFrame, 1, 1)
+    os.sleep(1 / fps)
+    return true, frameIndex  -- Continue playing
+end
+
+-- Function to play the video file
+local function playVideo(videoFile)
+    local videoData, resolution, fps = loadVideo(videoFile)
+    local frameIndex = 2  -- Start reading video data from the second line (skip metadata)
+
+    while true do
+        local success
+        success, frameIndex = nextFrame(videoData, resolution, fps, frameIndex)
+        
+        -- If we reach the end of the video, return to the beginning
+        if not success then
+            return  -- Exit the loop, signaling the end of the video
+        end
+    end
+end
+
+-- Set up the monitor and redirect the output
+monitor.setTextScale(1)
+term.redirect(monitor)
+
+-- Open modem on channel 100
 modem.open(100)
 
--- Specify the file to send
-local filePath = "/path/to/your/file.txt"
+-- Play the video on this computer
+playVideo(videoFile)
 
--- Read the entire file as a string
-local file = io.open(filePath, "r")
-if not file then
-    print("Could not open file.")
-    return
-end
+-- Send a signal to another computer to start its video after finishing
+modem.transmit(100, 1, "start_video")  -- You can modify this to suit your signaling logic
+print("Video finished, sent signal to start another video.")
 
-local fileContent = file:read("*all")  -- Read the entire file into memory
-file:close()
-
--- Define the maximum modem message size
-local maxMessageSize = 4096  -- 4 KB limit for modem messages
-
--- Send the file in chunks (size limited by modem)
-local totalChunks = math.ceil(#fileContent / maxMessageSize)
-print("Sending file... Total chunks: " .. totalChunks)
-
-for i = 1, totalChunks do
-    -- Calculate the start and end positions for the chunk
-    local startIdx = (i - 1) * maxMessageSize + 1
-    local endIdx = math.min(i * maxMessageSize, #fileContent)
-    
-    -- Get the chunk of file content
-    local chunk = fileContent:sub(startIdx, endIdx)
-    
-    -- Send the chunk with the chunk ID
-    modem.transmit(100, i, chunk)
-    print("Sent chunk " .. i .. "/" .. totalChunks)
-    
-    -- Optional: Small delay to avoid flooding the network
-    os.sleep(0.1)
-end
-
--- Send a completion signal
-modem.transmit(100, totalChunks + 1, "END")
-print("File sent successfully. Completion signal sent.")
+-- Reset terminal once done
+term.clear()
+term.redirect(term.native())
