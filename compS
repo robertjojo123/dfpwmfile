@@ -1,21 +1,19 @@
--- Code for tape_drive.lua (the program running on the second computer connected to the Tape Drive)
+local modem = peripheral.find("modem")
+local tapeDrive = peripheral.find("disk")  -- Assuming the tape drive is connected as a disk
 
--- Wrap the modem (assuming it's attached to the back of the computer)
-local modem = peripheral.wrap("back")
+-- Open modem on channel 100
+modem.open(100)
 
--- Wrap the Tape Drive (assuming it's attached to the back as well)
-local tape = peripheral.wrap("back")
-
--- Open the wireless channel to listen for messages (same as the sender)
-modem.open(1)
-
--- Listen for the "start_tape" message and trigger the Tape Drive playback
 while true do
-    local event, side, message, distance = os.pullEvent("modem_message")
+    local _, _, _, _, message = os.pullEvent("modem_message")
     
-    -- If the message is "start_tape", start playing the tape
-    if message == "start_tape" then
-        print("Received signal to start tape playback")
-        tape.play()  -- Start playing the tape
+    if message == "start_tape_drive" then
+        -- Start the tape drive
+        tapeDrive.play()
+        print("Tape drive started.")
+    elseif message == "rewind_tape_drive" then
+        -- Rewind the tape drive
+        tapeDrive.eject()  -- This can simulate a rewind action (assuming the disk can be ejected and rewound manually)
+        print("Tape drive rewound.")
     end
 end
