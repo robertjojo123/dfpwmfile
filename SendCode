@@ -23,7 +23,29 @@ end
 local fileContent = file:read("*all")  -- Read the entire file into memory
 file:close()
 
--- Send the file content to the receiver
-print("Sending file...")
-modem.transmit(100, 1, fileContent)  -- Send the entire file as a single transmission
-print("File sent successfully.")
+-- Define the maximum modem message size
+local maxMessageSize = 4096  -- 4 KB limit for modem messages
+
+-- Send the file in chunks (size limited by modem)
+local totalChunks = math.ceil(#fileContent / maxMessageSize)
+print("Sending file... Total chunks: " .. totalChunks)
+
+for i = 1, totalChunks do
+    -- Calculate the start and end positions for the chunk
+    local startIdx = (i - 1) * maxMessageSize + 1
+    local endIdx = math.min(i * maxMessageSize, #fileContent)
+    
+    -- Get the chunk of file content
+    local chunk = fileContent:sub(startIdx, endIdx)
+    
+    -- Send the chunk with the chunk ID
+    modem.transmit(100, i, chunk)
+    print("Sent chunk " .. i .. "/" .. totalChunks)
+    
+    -- Optional: Small delay to avoid flooding the network
+    os.sleep(0.1)
+end
+
+-- Send a completion signal
+modem.transmit(100, totalChunks + 1, "END")
+print("File sent successfully. Completion signal sent.")
