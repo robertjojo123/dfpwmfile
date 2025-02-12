@@ -8,8 +8,7 @@ local function loadVideo(videoFile)
         table.insert(videoData, line)
     end
 
--- Function to play the video
-  -- Get resolution and fps from the first line
+    -- Get resolution and fps from the first line
     local resolution = { videoData[1]:match("(%d+) (%d+)") }
     local fps = tonumber(videoData[1]:match("%d+ %d+ (%d+)"))
     table.remove(videoData, 1)  -- Remove the first line, which is metadata
@@ -56,18 +55,17 @@ term.redirect(monitor)
 -- Open modem on channel 100
 modem.open(100)
 
--- Listen for the signal to start playing the video
 while true do
+    -- Listen for the signal to start playing the video
     local _, _, _, _, message = os.pullEvent("modem_message")
 
     if message == "start_video_3" then
         -- Play the video once the signal is received
-        print("Received signal to start third video!")
-        playVideo("/video3.nfv")  -- Modify with the path of the third video
-        break
+        print("Received signal to start video!")
+        playVideo("/video3.nfv")  -- Modify to reflect the video file for this computer
+
+        -- Send a signal to the next computer to start its video after finishing this one
+        modem.transmit(100, 4, "start_video_4")  -- Signal next computer
+        print("Video finished, sent signal to start fourth computer's video.")
     end
 end
-
--- Send a signal to the fourth computer to start its video after finishing
-modem.transmit(100, 3, "start_video_4")  -- Signal the fourth computer to start its video
-print("Third video finished, sent signal to start fourth computer's video.")
