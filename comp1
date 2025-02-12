@@ -60,9 +60,9 @@ modem.open(100)
 -- Play the video on this computer
 playVideo(videoFile)
 
--- Send a signal to another computer to start its video after finishing
-modem.transmit(100, 1, "start_video")  -- You can modify this to suit your signaling logic
-print("Video finished, sent signal to start another video.")
+-- Send a signal to the second computer to start its video after finishing
+modem.transmit(100, 1, "start_video_2")  -- Signal the second computer to start its video
+print("Video finished, sent signal to start second computer's video.")
 
 -- Reset terminal once done
 term.clear()
