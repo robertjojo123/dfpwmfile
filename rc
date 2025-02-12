@@ -1,0 +1,7 @@
+local modem = peripheral.find("modem")
+
+-- Function to send "restart_cycle" to Computer 1
+local function sendRestartSignal()
+    modem.transmit(100, 1, "restart_cycle")  -- Transmit to channel 100, targetting Computer 1
+    print("Sent 'restart_cycle' signal to Computer 1.")
+end
