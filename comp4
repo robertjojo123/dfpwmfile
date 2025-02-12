@@ -67,5 +67,5 @@ while true do
 end
 
 -- Send a signal to the fifth computer to start its video after finishing
-modem.transmit(100, 3, "start_video_5")  -- Signal the fifth computer to start its video
+modem.transmit(100, 4, "start_video_5")  -- Signal the fifth computer to start its video
 print("Fourth video finished, sent signal to start fifth computer's video.")
