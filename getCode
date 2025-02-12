@@ -18,13 +18,38 @@ if not file then
     return
 end
 
--- Listen for incoming data (the whole file)
+-- Prepare to receive the chunks
 print("Waiting for file...")
 
-local _, _, _, _, _, fileContent = os.pullEvent("modem_message")
+local chunksReceived = 0
+local totalChunks = nil
+local fileContent = ""
 
--- Write the received content to the file
-file:write(fileContent)
+-- Listen for incoming chunks
+while true do
+    local _, _, _, _, chunkId, chunk = os.pullEvent("modem_message")
+    
+    -- Handle the special "END" signal to indicate file completion
+    if chunk == "END" then
+        print("File transfer complete.")
+        break
+    end
+    
+    -- Store the chunk in the correct order
+    if totalChunks == nil then
+        totalChunks = chunkId - 1  -- The total number of chunks
+    end
+    
+    fileContent = fileContent .. chunk
+    chunksReceived = chunksReceived + 1
+    print("Received chunk " .. chunkId .. "/" .. totalChunks)
+    
+    -- Write the file content to the disk once all chunks are received
+    if chunksReceived == totalChunks then
+        file:write(fileContent)
+        break
+    end
+end
+
 file:close()
-
 print("File received and saved successfully.")
