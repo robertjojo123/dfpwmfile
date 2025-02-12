@@ -59,10 +59,10 @@ while true do
     -- Listen for the signal to start playing the video
     local _, _, _, _, message = os.pullEvent("modem_message")
 
-    if message == "start_video_7" then
+    if message == "start_video_6" then
         -- Play the video once the signal is received
         print("Received signal to start video!")
-        playVideo("/video7.nfv")  -- Modify to reflect the video file for this computer
+        playVideo("/video6.nfv")  -- Modify to reflect the video file for this computer
 
         -- Send a signal to Computer 1 to restart the cycle after finishing this one
         modem.transmit(100, 1, "restart_cycle")  -- Signal Computer 1 to restart
