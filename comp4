@@ -47,6 +47,7 @@ local function playVideo(videoFile)
         end
     end
 end
+
 -- Set up the monitor and redirect the output
 monitor.setTextScale(1)
 term.redirect(monitor)
@@ -54,18 +55,17 @@ term.redirect(monitor)
 -- Open modem on channel 100
 modem.open(100)
 
--- Listen for the signal to start playing the video
 while true do
+    -- Listen for the signal to start playing the video
     local _, _, _, _, message = os.pullEvent("modem_message")
 
     if message == "start_video_4" then
         -- Play the video once the signal is received
-        print("Received signal to start third video!")
-        playVideo("/video4.nfv")  -- Modify with the path of the third video
-        break
+        print("Received signal to start video!")
+        playVideo("/video4.nfv")  -- Modify to reflect the video file for this computer
+
+        -- Send a signal to the next computer to start its video after finishing this one
+        modem.transmit(100, 5, "start_video_5")  -- Signal next computer
+        print("Video finished, sent signal to start fifth computer's video.")
     end
 end
-
--- Send a signal to the fifth computer to start its video after finishing
-modem.transmit(100, 4, "start_video_5")  -- Signal the fifth computer to start its video
-print("Fourth video finished, sent signal to start fifth computer's video.")
