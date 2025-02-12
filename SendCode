@@ -1,0 +1,29 @@
+-- Get the wireless modem
+local modem = peripheral.find("modem")
+
+-- Check if the modem is connected
+if not modem then
+    print("No modem found.")
+    return
+end
+
+-- Open the modem on a specific channel (channel 100)
+modem.open(100)
+
+-- Specify the file to send
+local filePath = "/path/to/your/file.txt"
+
+-- Read the entire file as a string
+local file = io.open(filePath, "r")
+if not file then
+    print("Could not open file.")
+    return
+end
+
+local fileContent = file:read("*all")  -- Read the entire file into memory
+file:close()
+
+-- Send the file content to the receiver
+print("Sending file...")
+modem.transmit(100, 1, fileContent)  -- Send the entire file as a single transmission
+print("File sent successfully.")
