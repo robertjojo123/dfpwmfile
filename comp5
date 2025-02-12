@@ -1,0 +1,72 @@
+local modem = peripheral.find("modem")
+local monitor = peripheral.find("monitor")
+
+-- Function to load video data from a file
+local function loadVideo(videoFile)
+    local videoData = {}
+    for line in io.lines(videoFile) do
+        table.insert(videoData, line)
+    end
+
+    -- Get resolution and fps from the first line
+    local resolution = { videoData[1]:match("(%d+) (%d+)") }
+    local fps = tonumber(videoData[1]:match("%d+ %d+ (%d+)"))
+    table.remove(videoData, 1)  -- Remove the first line, which is metadata
+
+    return videoData, resolution, fps
+end
+
+-- Function to display the next frame
+local function nextFrame(videoData, resolution, fps, frameIndex)
+    local frame = {}
+    for i = 1, resolution[2] do
+        if frameIndex + i > #videoData then
+            return false, frameIndex  -- End of video, return false to stop
+        end
+        table.insert(frame, videoData[frameIndex + i])
+    end
+    local parsedFrame = paintutils.parseImage(table.concat(frame, "\n"))
+    frameIndex = frameIndex + resolution[2]
+    paintutils.drawImage(parsedFrame, 1, 1)
+    os.sleep(1 / fps)
+    return true, frameIndex  -- Continue playing
+end
+
+-- Function to play the video file
+local function playVideo(videoFile)
+    local videoData, resolution, fps = loadVideo(videoFile)
+    local frameIndex = 2  -- Start reading video data from the second line (skip metadata)
+
+    while true do
+        local success
+        success, frameIndex = nextFrame(videoData, resolution, fps, frameIndex)
+        
+        -- If we reach the end of the video, return to the beginning
+        if not success then
+            return  -- Exit the loop, signaling the end of the video
+        end
+    end
+end
+
+-- Set up the monitor and redirect the output
+monitor.setTextScale(1)
+term.redirect(monitor)
+
+-- Open modem on channel 100
+modem.open(100)
+
+-- Listen for the signal to start playing the video
+while true do
+    local _, _, _, _, message = os.pullEvent("modem_message")
+
+    if message == "start_video_5" then
+        -- Play the video once the signal is received
+        print("Received signal to start fifth video!")
+        playVideo("/video5.nfv")  -- Modify with the path of the fifth video
+        break
+    end
+end
+
+-- Send a signal to the first computer to start its video after finishing
+modem.transmit(100, 5, "start_video_1")  -- Signal the first computer to start its video
+print("Fifth video finished, sent signal to start first computer's video.")
