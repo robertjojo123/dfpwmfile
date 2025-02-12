@@ -59,13 +59,17 @@ modem.open(100)
 while true do
     local _, _, _, _, message = os.pullEvent("modem_message")
 
-    if message == "start_video" then
+    if message == "start_video_2" then
         -- Play the video once the signal is received
-        print("Received signal to start video!")
-        playVideo("/video2.nfv")  -- Modify with your own video file path for this computer
+        print("Received signal to start second video!")
+        playVideo("/video2.nfv")  -- Modify with the path of the second video
         break
     end
 end
+
+-- Send a signal to the third computer to start its video after finishing the second video
+modem.transmit(100, 2, "start_video_3")  -- Signal the third computer to start its video
+print("Second video finished, sent signal to start third computer's video.")
 
 -- Reset terminal once done
 term.clear()
