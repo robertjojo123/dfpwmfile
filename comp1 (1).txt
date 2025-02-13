@@ -1,5 +1,6 @@
 local modem = peripheral.find("modem")
 local monitor = peripheral.find("monitor")
+local tapeDisk = peripheral.find("tape_drive")
 
 local videoFile = "/video1.nfv"  -- The video file for the first computer
 
@@ -59,15 +60,20 @@ modem.open(100)
 
 while true do
     -- Play the video on this computer
-    playVideo(videoFile)
+    --playVideo(videoFile)
 
     -- Send a signal to the second computer to start its video after finishing
-    modem.transmit(100, 2, "start_video_2")  -- Signal the second computer to start its video
-    print("Video finished, sent signal to start second computer's video.")
+    --modem.transmit(100, 2, "start_video_2")  -- Signal the second computer to start its video
+    --print("Video finished, sent signal to start second computer's video.")
     
     -- Wait for a signal from Computer 7 to restart the cycle
     local _, _, _, _, message = os.pullEvent("modem_message")
     if message == "restart_cycle" then
         print("Received signal to restart the cycle.")
+        tapeDrive.stop()
+        tapeDrive.seek(-10000000)
+        tapeDrive.play()
+        playVideo(videoFile)
+        modem.transmit(100, 2, "start_video_2")
     end
 end
