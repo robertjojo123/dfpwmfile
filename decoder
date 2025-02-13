@@ -1,0 +1,55 @@
+-- Function to convert a hexadecimal string to binary data (dfpwm format)
+function hex_to_dfpwm(hex)
+    local dfpwm_data = ""
+
+    -- Loop through the hexadecimal string in pairs of two characters (representing a byte)
+    for i = 1, #hex, 2 do
+        local hex_pair = hex:sub(i, i+1)  -- Get two characters at a time
+        local byte = tonumber(hex_pair, 16)  -- Convert hex pair to a number (byte)
+
+        -- If the conversion is successful, convert the byte to a character and append it to dfpwm data
+        if byte then
+            dfpwm_data = dfpwm_data .. string.char(byte)
+        else
+            print("Invalid hex pair: " .. hex_pair)
+        end
+    end
+
+    return dfpwm_data
+end
+
+-- Open the hexadecimal file for reading
+local hex_file = fs.open("hexadecimal.txt", "r")
+if not hex_file then
+    print("Could not open hexadecimal file!")
+    return
+end
+
+-- Read the entire content of the hexadecimal file
+local hex_data = hex_file.readAll()
+hex_file.close()
+
+-- Remove all non-hexadecimal characters (spaces, newlines, etc.)
+hex_data = hex_data:gsub("[^0-9a-fA-F]", "")
+
+-- Convert the cleaned-up hexadecimal string to dfpwm (binary) data
+local dfpwm_data = hex_to_dfpwm(hex_data)
+
+-- Get the tape drive object (or use the correct device)
+local tape = peripheral.wrap("left")  -- Adjust the side to where your tape drive is connected
+
+if not tape then
+    print("Could not find tape drive!")
+    return
+end
+
+-- Write the binary data byte by byte to the tape drive
+for i = 1, #dfpwm_data do
+    local byte = dfpwm_data:sub(i, i)  -- Get one byte at a time
+    tape.write(string.byte(byte))      -- Write the byte to the tape drive
+end
+
+-- Optionally, you can seek to the beginning of the tape after writing all data
+tape.seek(-#dfpwm_data)
+
+print("Hexadecimal data has been written to the tape drive successfully!")
