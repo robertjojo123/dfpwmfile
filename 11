@@ -22,7 +22,7 @@ local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -
 local lastPos = {x = 0, y = 0, z = 0, dir = 0}
 
 -- Material Chest Location (Relative to Start)
-local materialChest = {x = -1, y = 0, z = 0}
+local materialChest = {x = -1, y = 0, z = 0} -- 1 block to the left of start
 
 -- Functions for movement
 local function turnLeft()
@@ -136,16 +136,28 @@ local function restock(block)
     print("Restocking: "..block)
     savePosition()
     moveTo(materialChest)
-    
+    while pos.dir ~= 3 do turnLeft() end -- Face the chest
+
     for i = 1, 16 do
-        turtle.select(i)
         if turtle.getItemCount(i) == 0 then
-            turtle.suck(64)
-            local item = turtle.getItemDetail(i)
-            if item and item.name == "minecraft:"..block then
-                print("Restocked "..block)
-                returnToLastPosition()
-                return true
+            turtle.select(i)
+            local initialCount = turtle.getItemCount(i)
+            if turtle.suck(64) then
+                local item = turtle.getItemDetail(i)
+                if item and item.name == "minecraft:"..block then
+                    print("Restocked "..item.count.." of "..block)
+                    returnToLastPosition()
+                    return true
+                else
+                    turtle.drop() -- Drop incorrect item
+                end
+            else
+                local pulledCount = turtle.getItemCount(i) - initialCount
+                if pulledCount > 0 then
+                    print("Partially restocked "..pulledCount.." of "..block)
+                    returnToLastPosition()
+                    return true
+                end
             end
         end
     end
@@ -159,8 +171,9 @@ local function placeBlock(block)
         local item = turtle.getItemDetail(i)
         if item and item.name == "minecraft:"..block then
             turtle.select(i)
-            turtle.placeDown()
-            return true
+            if turtle.placeDown() then
+                return true
+            end
         end
     end
     print("Out of block: "..block)
