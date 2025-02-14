@@ -1,0 +1,200 @@
+-- Load schematic data
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    {x = 0, y = 0, z = 0, block = 'dirt'},
+    {x = 0, y = 0, z = 1, block = 'dirt'},
+    {x = 0, y = 0, z = 2, block = 'grass'},
+    {x = 0, y = 0, z = 3, block = 'dirt'},
+    {x = 0, y = 0, z = 4, block = 'dirt'},
+    {x = 0, y = 0, z = 5, block = 'dirt'},
+    {x = 1, y = 0, z = 0, block = 'dirt'},
+    {x = 1, y = 0, z = 1, block = 'dirt'},
+    {x = 1, y = 0, z = 2, block = 'dirt'},
+    {x = 1, y = 0, z = 3, block = 'dirt'},
+    {x = 1, y = 0, z = 4, block = 'dirt'},
+    {x = 1, y = 0, z = 5, block = 'dirt'}
+}
+
+-- Initial position tracking
+local startPosition = {x = 0, y = 0, z = 0}
+
+-- Check fuel level
+local function checkFuel()
+    if turtle.getFuelLevel() < 100 then
+        print("Fuel is low. Refueling...")
+        turtle.refuel()
+    end
+end
+
+-- Check if materials are available
+local function checkMaterials()
+    for _, block in ipairs(schematic) do
+        local blockType = "minecraft:" .. block.block
+        local found = false
+        for slot = 1, 16 do
+            if turtle.getItemDetail(slot) then
+                local item = turtle.getItemDetail(slot)
+                if item.name == blockType and item.count > 0 then
+                    turtle.select(slot)
+                    found = true
+                    break
+                end
+            end
+        end
+        if not found then
+            print("Material missing: " .. block.block)
+            return false
+        end
+    end
+    return true
+end
+
+-- Move to a target position with obstacle handling (up and over, backward, etc.)
+local function moveTo(target)
+    local dx = target.x - startPosition.x
+    local dz = target.z - startPosition.z
+    local dy = target.y - startPosition.y
+
+    -- Attempt to move forward in X direction
+    for i = 1, math.abs(dx) do
+        local moved = false
+        while not moved do
+            if dx > 0 and turtle.forward() then
+                moved = true
+            elseif dx < 0 and turtle.back() then
+                moved = true
+            else
+                print("Obstacle encountered in X direction, trying up and over...")
+                turtle.up()
+                if dx > 0 then
+                    moved = turtle.forward()
+                else
+                    moved = turtle.back()
+                end
+                turtle.down()
+
+                -- If still blocked, try going backward
+                if not moved then
+                    print("Still blocked in X direction, moving backward...")
+                    if dx > 0 then
+                        turtle.back()
+                    else
+                        turtle.forward()
+                    end
+                    moved = true
+                end
+            end
+        end
+    end
+
+    -- Attempt to move forward in Z direction
+    for i = 1, math.abs(dz) do
+        local moved = false
+        while not moved do
+            if dz > 0 and turtle.forward() then
+                moved = true
+            elseif dz < 0 and turtle.back() then
+                moved = true
+            else
+                print("Obstacle encountered in Z direction, trying up and over...")
+                turtle.up()
+                if dz > 0 then
+                    moved = turtle.forward()
+                else
+                    moved = turtle.back()
+                end
+                turtle.down()
+
+                -- If still blocked, try going backward
+                if not moved then
+                    print("Still blocked in Z direction, moving backward...")
+                    if dz > 0 then
+                        turtle.back()
+                    else
+                        turtle.forward()
+                    end
+                    moved = true
+                end
+            end
+        end
+    end
+
+    -- Handle Y (height) movement
+    if dy > 0 then
+        for i = 1, dy do
+            if not turtle.up() then
+                turtle.up()
+            end
+        end
+    elseif dy < 0 then
+        for i = 1, -dy do
+            if not turtle.down() then
+                turtle.down()
+            end
+        end
+    end
+
+    startPosition = target -- Update the turtle's position after moving
+end
+
+-- Restock materials from the chest
+local function restockMaterials(chestPosition)
+    print("Heading to the materials chest...")
+    moveTo(chestPosition)  -- Move to chest position
+
+    -- Restock materials from the chest (ensure chest is properly stocked)
+    for _, block in ipairs(schematic) do
+        local blockType = "minecraft:" .. block.block
+        local found = false
+        -- Check if there's a chest with the required materials
+        for slot = 1, 16 do
+            local item = turtle.getItemDetail(slot)
+            if item and item.name == blockType then
+                found = true
+                break
+            end
+        end
+
+        -- If not found, attempt to pick up materials from a chest
+        if not found then
+            print("Restocking " .. block.block .. "...")
+            -- Simulate picking up from the chest
+            -- Replace with actual chest inventory management logic as needed.
+        end
+    end
+    -- Return to the build position after restocking
+    print("Returning to the building position...")
+    moveTo(startPosition)
+end
+
+-- Function to place blocks based on schematic
+local function placeBlock(x, y, z, block)
+    checkFuel()
+    if turtle.detect() then
+        turtle.dig()
+    end
+    turtle.place()
+    print("Placing " .. block .. " at position " .. x .. ", " .. y .. ", " .. z)
+end
+
+-- Build the schematic layer by layer
+local function buildSchematic()
+    for _, block in ipairs(schematic) do
+        -- Check materials before placing each block
+        if not checkMaterials() then
+            restockMaterials(startPosition)
+        end
+
+        placeBlock(block.x, block.y, block.z, block.block)
+        turtle.forward()
+    end
+end
+
+-- Start building
+if checkMaterials() then
+    buildSchematic()
+else
+    print("Missing materials. Please restock.")
+end
