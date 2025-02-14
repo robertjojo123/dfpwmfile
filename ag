@@ -1,0 +1,195 @@
+-- Define the schematic data
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    {x = 0, y = 0, z = 0, block = 'dirt'},
+    {x = 0, y = 0, z = 1, block = 'dirt'},
+    {x = 0, y = 0, z = 2, block = 'grass'},
+    {x = 0, y = 0, z = 3, block = 'dirt'},
+    {x = 0, y = 0, z = 4, block = 'dirt'},
+    {x = 0, y = 0, z = 5, block = 'dirt'},
+    {x = 1, y = 0, z = 0, block = 'dirt'},
+    {x = 1, y = 0, z = 1, block = 'dirt'},
+    {x = 1, y = 0, z = 2, block = 'dirt'},
+    {x = 1, y = 0, z = 3, block = 'dirt'},
+    {x = 1, y = 0, z = 4, block = 'dirt'},
+    {x = 1, y = 0, z = 5, block = 'dirt'}
+}
+
+local turtle_position = {x = 0, y = 0, z = 0}
+local chest_position = {x = 0, y = 0, z = -1}  -- Assume chest is behind turtle by 1 block
+
+-- Function to check if an item is a fuel source
+local function is_fuel(item)
+    return item.name == "minecraft:coal" or item.name == "minecraft:charcoal"
+end
+
+-- Function to access chest behind the turtle
+local function access_chest()
+    turtle.turnRight()
+    turtle.turnRight()
+end
+
+-- Function to refuel the turtle completely
+local function refuel_turtle()
+    if turtle.getFuelLevel() == "unlimited" then return true end
+
+    while turtle.getFuelLevel() < 1000 do -- Ensure enough fuel for a long journey
+        access_chest()
+        for slot = 1, 27 do
+            local item = turtle.getItemDetail(slot)
+            if item and is_fuel(item) then
+                turtle.select(slot)
+                turtle.refuel(1) -- Refuel with one unit at a time
+                print("Refueled with " .. item.name)
+                return true
+            end
+        end
+        turtle.turnRight()
+        turtle.turnRight()
+    end
+    return false
+end
+
+-- Function to restock materials for a certain block type
+local function restock_from_chest(target_name, min_count)
+    access_chest()
+
+    local attempts = 0
+    while attempts < 5 do
+        for slot = 1, 27 do  -- Assuming chest has 27 slots
+            if turtle.suck(slot) then
+                local item = turtle.getItemDetail()
+                if item then
+                    -- Only accept materials (not fuel)
+                    if item.name == "minecraft:" .. target_name then
+                        if turtle.getItemCount() >= min_count then
+                            turtle.turnRight()
+                            turtle.turnRight()
+                            return true
+                        end
+                    else
+                        -- Not the right item, put it back
+                        turtle.drop()
+                    end
+                end
+            end
+        end
+        attempts = attempts + 1
+    end
+
+    print("Not enough " .. target_name .. " in chest.")
+    turtle.turnRight()
+    turtle.turnRight()
+    return false
+end
+
+-- Function to move the turtle to a given position (x, y, z)
+local function move_to_position(x, y, z)
+    local dx = x - turtle_position.x
+    local dy = y - turtle_position.y
+    local dz = z - turtle_position.z
+
+    -- Move in x direction
+    if dx > 0 then
+        for i = 1, dx do
+            turtle.forward()
+        end
+    elseif dx < 0 then
+        for i = 1, -dx do
+            turtle.back()
+        end
+    end
+
+    -- Move in y direction (vertical movement)
+    if dy > 0 then
+        for i = 1, dy do
+            turtle.up()
+        end
+    elseif dy < 0 then
+        for i = 1, -dy do
+            turtle.down()
+        end
+    end
+
+    -- Move in z direction (horizontal movement)
+    if dz > 0 then
+        for i = 1, dz do
+            turtle.turnRight()
+            turtle.forward()
+            turtle.turnLeft()
+        end
+    elseif dz < 0 then
+        for i = 1, -dz do
+            turtle.turnLeft()
+            turtle.forward()
+            turtle.turnRight()
+        end
+    end
+
+    -- Update the turtle's position
+    turtle_position.x = x
+    turtle_position.y = y
+    turtle_position.z = z
+end
+
+-- Function to find and select the correct block
+local function select_block(block_name)
+    -- Search through the turtle's inventory for the correct block type
+    for slot = 1, 16 do
+        local item = turtle.getItemDetail(slot)
+        if item then
+            if item.name == "minecraft:" .. block_name then
+                turtle.select(slot)
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Function to place the block (simplified)
+local function place_block(block_name)
+    -- Find and select the correct block
+    if select_block(block_name) then
+        -- Place the block
+        turtle.placeDown()
+    else
+        print("No " .. block_name .. " in inventory!")
+    end
+end
+
+-- Build the schematic by iterating through the schematic data
+local function build_schematic()
+    -- Restock for the blocks before starting to build
+    for _, block_data in ipairs(schematic) do
+        if not select_block(block_data.block) then
+            -- Restock the material if we don't have it
+            if not restock_from_chest(block_data.block, 10) then
+                return -- Stop building if we can't restock the required material
+            end
+        end
+    end
+
+    -- Move and place blocks according to the schematic data
+    for i, block_data in ipairs(schematic) do
+        move_to_position(block_data.x, block_data.y, block_data.z)
+        
+        -- Try to place the block, if failure (no materials), return to chest and restock
+        if not place_block(block_data.block) then
+            print("Running low on " .. block_data.block .. ". Returning to chest for restocking...")
+            move_to_position(chest_position.x, chest_position.y, chest_position.z)  -- Return to chest
+            if not restock_from_chest(block_data.block, 10) then
+                return -- Stop building if we can't restock the required material
+            end
+            -- Now return to the last block position and continue
+            move_to_position(block_data.x, block_data.y, block_data.z)
+            place_block(block_data.block)
+        end
+    end
+end
+
+-- Refuel and restock before starting the build process
+refuel_turtle()
+build_schematic()
