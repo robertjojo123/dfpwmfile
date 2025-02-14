@@ -1,128 +1,77 @@
--- Load the schematic data from the floppy disk
-local function load_schematic_from_disk()
-    -- Ensure the floppy disk is inserted into a disk drive (assumed to be on the left side)
-    local disk_drive = peripheral.wrap("left")  -- Assuming the disk drive is on the left side of the turtle
-    if not disk_drive then
-        print("Error: No disk drive detected.")
-        return nil
-    end
+-- Define the schematic data
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    {x = 0, y = 0, z = 0, block = 'dirt'},
+    {x = 0, y = 0, z = 1, block = 'dirt'},
+    {x = 0, y = 0, z = 2, block = 'grass'},
+    {x = 0, y = 0, z = 3, block = 'dirt'},
+    {x = 0, y = 0, z = 4, block = 'dirt'},
+    {x = 0, y = 0, z = 5, block = 'dirt'},
+    {x = 1, y = 0, z = 0, block = 'dirt'},
+    {x = 1, y = 0, z = 1, block = 'dirt'},
+    {x = 1, y = 0, z = 2, block = 'dirt'},
+    {x = 1, y = 0, z = 3, block = 'dirt'},
+    {x = 1, y = 0, z = 4, block = 'dirt'},
+    {x = 1, y = 0, z = 5, block = 'dirt'}
+}
 
-    -- Check if the file exists on the disk
-    local schematic_file = "schematic.lua"  -- Name of the schematic file on the disk
-    if not disk_drive.hasData(schematic_file) then
-        print("Error: schematic.lua file not found on the disk.")
-        return nil
-    end
+-- Function to move the turtle to a given position (x, y, z)
+local function move_to_position(x, y, z)
+    -- Adjust turtle's position to match the coordinates
+    local dx = x - (turtle.getX() or 0)
+    local dy = y - (turtle.getY() or 0)
+    local dz = z - (turtle.getZ() or 0)
 
-    -- Open the schematic file from the floppy disk
-    local file = disk_drive.open(schematic_file, "r")
-    if not file then
-        print("Error: Could not open schematic.lua file.")
-        return nil
-    end
-
-    -- Read all content from the file
-    local schematic_data = file.readAll()
-    file.close()
-
-    -- Ensure that the file content is valid Lua code and remove trailing commas
-    schematic_data = string.gsub(schematic_data, ",%s*}", "}")
-    schematic_data = string.gsub(schematic_data, ",%s*]", "]")
-
-    -- Ensure the format starts with the correct local variable declaration
-    schematic_data = "return " .. schematic_data
-
-    -- Load and execute the Lua code to get the schematic table
-    local schematic, err = load(schematic_data, "schematic", "t", _G)
-    if not schematic then
-        print("Error loading schematic: " .. (err or "Unknown error"))
-        return nil
-    end
-
-    -- Execute the loaded Lua code and return the schematic table
-    return schematic()
-end
-
--- Helper function to place a block based on the block name
-local function place_block(block)
-    -- The 'block' variable here will be a string, such as 'dirt', 'stone', etc.
-    -- The turtle automatically knows how to place most blocks, so we can directly use it.
-    if turtle.detectDown() then
-        -- If there's a block below, we won't place a new one, just move on
-        return
-    end
-    if turtle.getItemCount() > 0 then
-        turtle.placeDown()
-    else
-        print("Not enough items in inventory to place block: " .. block)
-    end
-end
-
--- Function to move the turtle to the required coordinates relative to its starting position
-local function move_to(x, y, z)
-    -- Get the current position (relative to where the turtle started)
-    local current_x, current_y, current_z = 0, 0, 0 -- Assuming initial coordinates (adjust as needed)
-
-    -- Calculate the relative movement required
-    local dx = x - current_x
-    local dy = y - current_y
-    local dz = z - current_z
-
-    -- Move in the X direction (left or right)
+    -- Move in x direction
     if dx > 0 then
-        for i = 1, dx do
-            turtle.forward()
-        end
+        turtle.move(dx)
     elseif dx < 0 then
-        for i = 1, -dx do
-            turtle.back()
-        end
+        turtle.move(-dx)
     end
 
-    -- Move in the Y direction (up or down)
+    -- Move in y direction (vertical movement)
     if dy > 0 then
-        for i = 1, dy do
-            turtle.up()
-        end
+        turtle.up(dy)
     elseif dy < 0 then
-        for i = 1, -dy do
-            turtle.down()
-        end
+        turtle.down(-dy)
     end
 
-    -- Move in the Z direction (left or right, or forwards/backwards)
+    -- Move in z direction (horizontal movement)
     if dz > 0 then
-        for i = 1, dz do
-            turtle.forward()
-        end
+        turtle.forward(dz)
     elseif dz < 0 then
-        for i = 1, -dz do
-            turtle.back()
+        turtle.back(-dz)
+    end
+end
+
+-- Function to place the block
+local function place_block(block_name)
+    -- Check if the turtle has the block in its inventory
+    local success, data = turtle.inspectDown()
+    if not success or data.name ~= block_name then
+        -- Try to get the correct block from the turtle's inventory
+        for i = 1, 16 do
+            turtle.select(i)
+            local success, data = turtle.getItemDetail()
+            if success and data.name == block_name then
+                break
+            end
         end
     end
+    -- Place the block
+    turtle.placeDown()
 end
 
--- Build the schematic block-by-block
-local function build_schematic(schematic)
-    if not schematic then
-        print("Schematic not loaded properly.")
-        return
-    end
-
-    -- Iterate through the blocks in the schematic
-    for _, block in ipairs(schematic) do
-        -- Move the turtle to the block's position (relative to its current position)
-        move_to(block.x, block.y, block.z)
-
-        -- Place the block
-        place_block(block.block)
+-- Build the schematic by iterating through the schematic data
+local function build_schematic()
+    for _, block_data in ipairs(schematic) do
+        -- Move to the position of each block and place it
+        move_to_position(block_data.x, block_data.y, block_data.z)
+        place_block(block_data.block)
     end
 end
 
--- Load the schematic from the floppy disk and start building
-local schematic = load_schematic_from_disk()
-if schematic then
-    build_schematic(schematic)
-else
-    print("Failed to load schematic.")
-end
+-- Start building the schematic
+build_schematic()
