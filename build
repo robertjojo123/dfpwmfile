@@ -1,13 +1,24 @@
 -- Load the schematic data from the file
 local function load_schematic()
+    -- Try to open the file
     local file = fs.open("schematic.lua", "r")
+    if not file then
+        print("Error: schematic.lua file not found.")
+        return nil
+    end
+
     local schematic_data = file.readAll()
     file.close()
 
-    -- Load the schematic table from the Lua file
-    local schematic = load(schematic_data)()
+    -- Try to load the schematic table from the Lua file
+    local schematic, err = load(schematic_data)
+    if not schematic then
+        print("Error loading schematic: " .. (err or "Unknown error"))
+        return nil
+    end
 
-    return schematic
+    -- Return the loaded schematic
+    return schematic()
 end
 
 -- Helper function to place a block based on the block name
@@ -71,6 +82,11 @@ end
 
 -- Build the schematic block-by-block
 local function build_schematic(schematic)
+    if not schematic then
+        print("Schematic not loaded properly.")
+        return
+    end
+
     for _, block in ipairs(schematic) do
         -- Move the turtle to the block's position
         move_to(block.x, block.y, block.z)
@@ -82,4 +98,8 @@ end
 
 -- Load the schematic and start building
 local schematic = load_schematic()
-build_schematic(schematic)
+if schematic then
+    build_schematic(schematic)
+else
+    print("Failed to load schematic.")
+end
