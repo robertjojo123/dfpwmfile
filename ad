@@ -1,0 +1,68 @@
+-- Function to check if an item is a fuel source
+local function is_fuel(item)
+    return item.name == "minecraft:coal" or item.name == "minecraft:charcoal"
+end
+
+-- Function to restock from the chest
+local function restock_from_chest(target_name, min_count)
+    access_chest()
+    
+    -- Limit restock attempts to avoid infinite loops
+    local attempts = 0
+    while attempts < 5 do
+        -- Check each slot in the chest
+        for slot = 1, 27 do  -- Assuming the chest has 27 slots
+            if turtle.suck(slot) then
+                local item = turtle.getItemDetail()
+                if item then
+                    -- Check if it's the right item
+                    if item.name == target_name then
+                        if turtle.getItemCount() >= min_count then
+                            turtle.turnRight()
+                            turtle.turnRight()  -- Face forward again
+                            return true
+                        end
+                    else
+                        -- If it's not the correct item, put it back
+                        turtle.drop()
+                    end
+                end
+            end
+        end
+        attempts = attempts + 1
+    end
+
+    print("Not enough " .. target_name .. " in chest.")
+    turtle.turnRight()
+    turtle.turnRight()  -- Face forward again
+    return false
+end
+
+-- Function to refuel the turtle
+local function check_fuel()
+    if turtle.getFuelLevel() == "unlimited" then return true end
+    if turtle.getFuelLevel() < 10 then
+        -- Explicitly look for fuel (e.g., coal)
+        access_chest()
+        
+        for slot = 1, 27 do
+            if turtle.suck(slot) then
+                local item = turtle.getItemDetail()
+                if item and is_fuel(item) then
+                    turtle.refuel()
+                    turtle.turnRight()
+                    turtle.turnRight()  -- Face forward again
+                    return true
+                else
+                    turtle.drop()  -- Not fuel, put it back
+                end
+            end
+        end
+        
+        print("Out of fuel!")
+        turtle.turnRight()
+        turtle.turnRight()  -- Face forward again
+        return false
+    end
+    return true
+end
