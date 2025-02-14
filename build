@@ -69,6 +69,12 @@ function load_schematic(filename)
     local success, result = pcall(loadstring(content))
     if success then
         print("Schematic loaded successfully.")
+        -- Ensure that 'Short' values are removed or replaced with normal numbers
+        for i, block in ipairs(result) do
+            block.x = tonumber(block.x) or block.x
+            block.y = tonumber(block.y) or block.y
+            block.z = tonumber(block.z) or block.z
+        end
         return result
     else
         print("Error loading schematic: " .. result)
