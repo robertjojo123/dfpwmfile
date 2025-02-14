@@ -75,16 +75,26 @@ local function place_block(block_name)
     local success, data = turtle.inspectDown()
     if not success or data.name ~= block_name then
         -- Try to get the correct block from the turtle's inventory
+        local found_block = false
         for i = 1, 16 do
             turtle.select(i)
             local success, data = turtle.getItemDetail()
             if success and data.name == block_name then
+                found_block = true
                 break
             end
         end
+        
+        -- If the block was found, place it
+        if found_block then
+            turtle.placeDown()
+        else
+            print("Error: No " .. block_name .. " in inventory.")
+        end
+    else
+        -- Place the block if it's already the correct one
+        turtle.placeDown()
     end
-    -- Place the block
-    turtle.placeDown()
 end
 
 -- Build the schematic by iterating through the schematic data
