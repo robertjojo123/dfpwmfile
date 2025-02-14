@@ -73,13 +73,21 @@ end
 local function place_block(block_name)
     -- Check if the turtle has the block in its inventory
     local success, data = turtle.inspectDown()
-    if not success or data.name ~= block_name then
+    
+    -- If inspectDown returns nil, 'data' will be nil. Check that first.
+    if not success or not data then
+        print("Error: No block detected below the turtle.")
+        return
+    end
+    
+    -- If the block is not the one expected, place the correct one from inventory
+    if data.name ~= block_name then
         -- Try to get the correct block from the turtle's inventory
         local found_block = false
         for i = 1, 16 do
             turtle.select(i)
-            local success, data = turtle.getItemDetail()
-            if success and data.name == block_name then
+            local success, item = turtle.getItemDetail()
+            if success and item.name == block_name then
                 found_block = true
                 break
             end
