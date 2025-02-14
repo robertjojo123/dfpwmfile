@@ -1,9 +1,23 @@
--- Load the schematic data from the file
-local function load_schematic()
-    -- Try to open the file
-    local file = fs.open("schematic.lua", "r")
+-- Load the schematic data from the floppy disk
+local function load_schematic_from_disk()
+    -- Ensure the floppy disk is inserted
+    local disk_name = "schematic.lua" -- Name of the schematic file on the disk
+    local disk = peripheral.wrap("left")  -- Assuming the floppy disk is attached to the left side of the turtle
+    if not disk then
+        print("Error: No floppy disk detected.")
+        return nil
+    end
+
+    -- Check if the file exists on the disk
+    if not disk.hasData(disk_name) then
+        print("Error: schematic.lua file not found on the disk.")
+        return nil
+    end
+
+    -- Open the schematic file from the floppy disk
+    local file = disk.open(disk_name, "r")
     if not file then
-        print("Error: schematic.lua file not found.")
+        print("Error: Could not open schematic.lua file.")
         return nil
     end
 
@@ -11,17 +25,21 @@ local function load_schematic()
     local schematic_data = file.readAll()
     file.close()
 
-    -- Replace the commas after the last block to avoid issues with table parsing
-    schematic_data = schematic_data:gsub(",%s*}", " }")
+    -- Ensure that the file content is valid Lua code and remove trailing commas
+    schematic_data = string.gsub(schematic_data, ",%s*}", "}")
+    schematic_data = string.gsub(schematic_data, ",%s*]", "]")
 
-    -- Execute the content of the file and capture the schematic data
+    -- Ensure the format starts with the correct local variable declaration
+    schematic_data = "return " .. schematic_data
+
+    -- Load and execute the Lua code to get the schematic table
     local schematic, err = load(schematic_data, "schematic", "t", _G)
     if not schematic then
         print("Error loading schematic: " .. (err or "Unknown error"))
         return nil
     end
 
-    -- Execute the loaded Lua code to return the schematic table
+    -- Execute the loaded Lua code and return the schematic table
     return schematic()
 end
 
@@ -91,8 +109,9 @@ local function build_schematic(schematic)
         return
     end
 
+    -- Iterate through the blocks in the schematic
     for _, block in ipairs(schematic) do
-        -- Move the turtle to the block's position
+        -- Move the turtle to the block's position (relative to its current position)
         move_to(block.x, block.y, block.z)
 
         -- Place the block
@@ -100,8 +119,8 @@ local function build_schematic(schematic)
     end
 end
 
--- Load the schematic and start building
-local schematic = load_schematic()
+-- Load the schematic from the floppy disk and start building
+local schematic = load_schematic_from_disk()
 if schematic then
     build_schematic(schematic)
 else
