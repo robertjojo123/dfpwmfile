@@ -36,10 +36,15 @@ local function turnRight()
 end
 
 local function tryMove(moveFunc, detectFunc, attackFunc, upAndOver)
+    local tries = 0
     while not moveFunc() do
+        tries = tries + 1
+        
+        -- If an obstacle is detected
         if detectFunc() then
             attackFunc()
         else
+            -- Try moving around obstacles
             if upAndOver then
                 if turtle.up() then
                     pos.y = pos.y + 1
@@ -49,27 +54,45 @@ local function tryMove(moveFunc, detectFunc, attackFunc, upAndOver)
                         end
                     end
                 else
+                    -- Try turning around and moving in the opposite direction
                     turnLeft()
                     turnLeft()
                     if moveFunc() then
                         turnLeft()
                         turnLeft()
                     else
-                        turnRight()
+                        -- Try moving left and right to go around the obstacle
+                        turnLeft()
                         if moveFunc() then
                             turnLeft()
                         else
-                            turnLeft()
+                            turnRight()
                             if moveFunc() then
-                                turnRight()
+                                turnLeft()
                             else
-                                print("Stuck! Cannot navigate obstacle.")
-                                return false
+                                -- Attempt to backtrack and try a different direction
+                                print("Obstacle detected! Backtracking...")
+                                turnLeft()
+                                turnLeft()
+                                moveFunc()
+                                turnLeft()
+                                turnLeft()
                             end
                         end
                     end
                 end
+            else
+                -- Try backing up to avoid getting stuck in case of obstacle
+                print("Obstacle detected! Backtracking...")
+                turtle.back()
+                pos.x = pos.x - 1
             end
+        end
+
+        -- Prevent infinite loop if turtle gets stuck
+        if tries > 10 then
+            print("Too many attempts, giving up on this movement.")
+            return false
         end
     end
     return true
