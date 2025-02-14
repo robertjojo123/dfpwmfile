@@ -1,4 +1,3 @@
-import schematic
 import json
 
 # Function to get block name from block ID
@@ -16,14 +15,21 @@ def get_block_name(block_id):
 # Load the schematic file using the `schematic` library
 def load_schematic(filename):
     # Read the schematic file
-    schematic_data = schematic.load(filename)
+    with open(filename, 'r') as file:
+        schematic_data = json.load(file)
+    
     blocks = []
+    
+    # Extract the schematic dimensions (remove Short() wrapper)
+    width = schematic_data['width']
+    height = schematic_data['height']
+    length = schematic_data['length']
 
     # Iterate through all the blocks in the schematic
-    for x in range(schematic_data.width):
-        for y in range(schematic_data.height):
-            for z in range(schematic_data.length):
-                block_id = schematic_data.get_block(x, y, z)
+    for x in range(width):
+        for y in range(height):
+            for z in range(length):
+                block_id = schematic_data.get('blockData', {}).get(f"{x},{y},{z}", 0)
                 if block_id != 0:  # Only include non-air blocks
                     block_name = get_block_name(block_id)  # Map block ID to name
                     blocks.append({
@@ -36,8 +42,8 @@ def load_schematic(filename):
     return blocks
 
 # Convert the schematic data into a Lua table format
-def convert_to_lua(blocks):
-    lua_table = "local schematic = {\n"
+def convert_to_lua(blocks, width, height, length):
+    lua_table = f"local schematic = {{\n    width = {width},\n    height = {height},\n    length = {length},\n"
     for block in blocks:
         lua_table += f"    {{x={block['x']}, y={block['y']}, z={block['z']}, block='{block['block']}'}}},\n"
     lua_table += "}\n"
@@ -51,9 +57,18 @@ def save_lua_file(lua_code, filename="schematic.lua"):
 
 # Main function to load, convert, and save
 def main():
-    schematic_file = "path/to/your/schematic.schematic"  # Replace with your schematic file path
+    schematic_file = "path/to/your/schematic.json"  # Replace with your schematic file path
     blocks = load_schematic(schematic_file)
-    lua_code = convert_to_lua(blocks)
+    
+    # Extract the dimensions (assuming they're present in the schematic data)
+    with open(schematic_file, 'r') as file:
+        schematic_data = json.load(file)
+    
+    width = schematic_data['width']
+    height = schematic_data['height']
+    length = schematic_data['length']
+    
+    lua_code = convert_to_lua(blocks, width, height, length)
     save_lua_file(lua_code)
 
 if __name__ == "__main__":
