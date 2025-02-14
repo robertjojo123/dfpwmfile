@@ -7,17 +7,18 @@ local function load_schematic()
         return nil
     end
 
+    -- Read all content from the file
     local schematic_data = file.readAll()
     file.close()
 
-    -- Try to load the schematic table from the Lua file
-    local schematic, err = load(schematic_data)
+    -- Execute the content of the file and capture the schematic data
+    local schematic, err = load(schematic_data, "schematic", "t", _G)
     if not schematic then
         print("Error loading schematic: " .. (err or "Unknown error"))
         return nil
     end
 
-    -- Return the loaded schematic
+    -- Execute the loaded Lua code to return the schematic table
     return schematic()
 end
 
