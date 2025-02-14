@@ -1,21 +1,21 @@
 -- Load the schematic data from the floppy disk
 local function load_schematic_from_disk()
-    -- Ensure the floppy disk is inserted
-    local disk_name = "schematic.lua" -- Name of the schematic file on the disk
-    local disk = peripheral.wrap("left")  -- Assuming the floppy disk is attached to the left side of the turtle
-    if not disk then
-        print("Error: No floppy disk detected.")
+    -- Ensure the floppy disk is inserted into a disk drive (assumed to be on the left side)
+    local disk_drive = peripheral.wrap("left")  -- Assuming the disk drive is on the left side of the turtle
+    if not disk_drive then
+        print("Error: No disk drive detected.")
         return nil
     end
 
     -- Check if the file exists on the disk
-    if not disk.hasData(disk_name) then
+    local schematic_file = "schematic.lua"  -- Name of the schematic file on the disk
+    if not disk_drive.hasData(schematic_file) then
         print("Error: schematic.lua file not found on the disk.")
         return nil
     end
 
     -- Open the schematic file from the floppy disk
-    local file = disk.open(disk_name, "r")
+    local file = disk_drive.open(schematic_file, "r")
     if not file then
         print("Error: Could not open schematic.lua file.")
         return nil
