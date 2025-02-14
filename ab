@@ -1,0 +1,150 @@
+-- Define the schematic data
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    {x = 0, y = 0, z = 0, block = 'dirt'},
+    {x = 0, y = 0, z = 1, block = 'dirt'},
+    {x = 0, y = 0, z = 2, block = 'grass'},
+    {x = 0, y = 0, z = 3, block = 'dirt'},
+    {x = 0, y = 0, z = 4, block = 'dirt'},
+    {x = 0, y = 0, z = 5, block = 'dirt'},
+    {x = 1, y = 0, z = 0, block = 'dirt'},
+    {x = 1, y = 0, z = 1, block = 'dirt'},
+    {x = 1, y = 0, z = 2, block = 'dirt'},
+    {x = 1, y = 0, z = 3, block = 'dirt'},
+    {x = 1, y = 0, z = 4, block = 'dirt'},
+    {x = 1, y = 0, z = 5, block = 'dirt'}
+}
+
+-- Start by setting the turtle's current position at (0, 0, 0)
+local turtle_position = {x = 0, y = 0, z = 0}
+local facing = 0  -- 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+
+-- Function to turn the turtle to a specific direction
+local function turn_to(direction)
+    while facing ~= direction do
+        turtle.turnRight()
+        facing = (facing + 1) % 4
+    end
+end
+
+-- Function to move the turtle to a given position (x, y, z)
+local function move_to_position(x, y, z)
+    -- Move in Y direction first (vertical)
+    while turtle_position.y < y do
+        if turtle.up() then
+            turtle_position.y = turtle_position.y + 1
+        else
+            print("Failed to move up!")
+            return false
+        end
+    end
+    while turtle_position.y > y do
+        if turtle.down() then
+            turtle_position.y = turtle_position.y - 1
+        else
+            print("Failed to move down!")
+            return false
+        end
+    end
+
+    -- Move in X direction
+    if turtle_position.x < x then
+        turn_to(1)  -- Face +X
+        while turtle_position.x < x do
+            if turtle.forward() then
+                turtle_position.x = turtle_position.x + 1
+            else
+                print("Failed to move forward in X direction!")
+                return false
+            end
+        end
+    elseif turtle_position.x > x then
+        turn_to(3)  -- Face -X
+        while turtle_position.x > x do
+            if turtle.forward() then
+                turtle_position.x = turtle_position.x - 1
+            else
+                print("Failed to move backward in X direction!")
+                return false
+            end
+        end
+    end
+
+    -- Move in Z direction
+    if turtle_position.z < z then
+        turn_to(0)  -- Face +Z
+        while turtle_position.z < z do
+            if turtle.forward() then
+                turtle_position.z = turtle_position.z + 1
+            else
+                print("Failed to move forward in Z direction!")
+                return false
+            end
+        end
+    elseif turtle_position.z > z then
+        turn_to(2)  -- Face -Z
+        while turtle_position.z > z do
+            if turtle.forward() then
+                turtle_position.z = turtle_position.z - 1
+            else
+                print("Failed to move backward in Z direction!")
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+-- Function to find and select the correct block
+local function select_block(block_name)
+    -- Ensure the block name includes the minecraft: prefix
+    if not string.find(block_name, "minecraft:") then
+        block_name = "minecraft:" .. block_name
+    end
+
+    -- Search through the turtle's inventory for the correct block type
+    for slot = 1, 16 do
+        local item = turtle.getItemDetail(slot)
+        if item then
+            print("Slot " .. slot .. ": " .. (item.name or "nil"))  -- Debug: print item details
+            if item.name == block_name then
+                turtle.select(slot)
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Function to place the block (simplified)
+local function place_block(block_name)
+    -- Find and select the correct block
+    if select_block(block_name) then
+        -- Place the block down
+        if turtle.placeDown() then
+            print("Placed " .. block_name)
+        else
+            print("Failed to place " .. block_name)
+        end
+    else
+        print("No " .. block_name .. " in inventory!")
+    end
+end
+
+-- Build the schematic by iterating through the schematic data
+local function build_schematic()
+    for _, block_data in ipairs(schematic) do
+        -- Move to the position of each block and place it
+        if move_to_position(block_data.x, block_data.y + 1, block_data.z) then
+            place_block(block_data.block)
+        else
+            print("Failed to move to position (" .. block_data.x .. ", " .. block_data.y .. ", " .. block_data.z .. ")")
+        end
+    end
+end
+
+-- Start building the schematic
+build_schematic()
