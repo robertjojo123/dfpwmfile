@@ -69,12 +69,20 @@ function load_schematic(filename)
     local success, result = pcall(loadstring(content))
     if success then
         print("Schematic loaded successfully.")
-        -- Ensure that 'Short' values are removed or replaced with normal numbers
-        for i, block in ipairs(result) do
-            block.x = tonumber(block.x) or block.x
-            block.y = tonumber(block.y) or block.y
-            block.z = tonumber(block.z) or block.z
+        
+        -- Check if we have 'Short()' values, and work around them
+        -- Iterate through and convert the Short() calls into plain integers
+        if result.width and type(result.width) == "userdata" then
+            result.width = tonumber(tostring(result.width))
         end
+        if result.height and type(result.height) == "userdata" then
+            result.height = tonumber(tostring(result.height))
+        end
+        if result.length and type(result.length) == "userdata" then
+            result.length = tonumber(tostring(result.length))
+        end
+        
+        -- Return the schematic
         return result
     else
         print("Error loading schematic: " .. result)
@@ -86,7 +94,7 @@ end
 function build_schematic(schematic)
     -- Get the turtle's current position
     local current_x, current_y, current_z = get_current_position()
-    
+
     -- Iterate through the blocks in the schematic
     for _, block in ipairs(schematic) do
         -- Move the turtle to the correct relative coordinates
