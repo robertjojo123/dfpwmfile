@@ -155,6 +155,7 @@ local function returnToLastPosition()
     while pos.dir ~= lastPos.dir do turnRight() end
 end
 
+-- Restock Function (Cycle Through Items)
 local function restock(block)
     print("Restocking: "..block)
     savePosition()
@@ -165,22 +166,25 @@ local function restock(block)
         if turtle.getItemCount(i) == 0 then
             turtle.select(i)
             local initialCount = turtle.getItemCount(i)
-            if turtle.suck(64) then
-                local item = turtle.getItemDetail(i)
-                if item and item.name == "minecraft:"..block then
-                    print("Restocked "..item.count.." of "..block)
-                    returnToLastPosition()
-                    return true
-                else
-                    turtle.drop() -- Drop incorrect item
+            local restocked = false
+
+            -- Try to suck up materials from the chest
+            for slot = 1, 16 do
+                if turtle.getItemCount(slot) == 0 then
+                    turtle.select(slot)
+                    local item = turtle.getItemDetail(slot)
+                    if item and item.name == "minecraft:"..block then
+                        restocked = turtle.suck(64)
+                        break
+                    end
                 end
-            else
-                local pulledCount = turtle.getItemCount(i) - initialCount
-                if pulledCount > 0 then
-                    print("Partially restocked "..pulledCount.." of "..block)
-                    returnToLastPosition()
-                    return true
-                end
+            end
+
+            -- If material found, restock and return to building
+            if restocked then
+                print("Restocked "..block)
+                returnToLastPosition()
+                return true
             end
         end
     end
@@ -189,6 +193,7 @@ local function restock(block)
     return false
 end
 
+-- Place Block Function (Restocks if Block is Missing)
 local function placeBlock(block)
     for i = 1, 16 do
         local item = turtle.getItemDetail(i)
@@ -208,6 +213,7 @@ local function placeBlock(block)
     end
 end
 
+-- Build Schematic
 local function buildSchematic()
     for _, blockData in ipairs(schematic) do
         local target = {x = blockData.x, y = blockData.y, z = blockData.z}
