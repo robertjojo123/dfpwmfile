@@ -1,0 +1,167 @@
+-- Define schematic data
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    {x = 0, y = 0, z = 0, block = 'dirt'},
+    {x = 0, y = 0, z = 1, block = 'dirt'},
+    {x = 0, y = 0, z = 2, block = 'grass'},
+    {x = 0, y = 0, z = 3, block = 'dirt'},
+    {x = 0, y = 0, z = 4, block = 'dirt'},
+    {x = 0, y = 0, z = 5, block = 'dirt'},
+    {x = 1, y = 0, z = 0, block = 'dirt'},
+    {x = 1, y = 0, z = 1, block = 'dirt'},
+    {x = 1, y = 0, z = 2, block = 'dirt'},
+    {x = 1, y = 0, z = 3, block = 'dirt'},
+    {x = 1, y = 0, z = 4, block = 'dirt'},
+    {x = 1, y = 0, z = 5, block = 'dirt'}
+}
+
+-- Turtle's current position (we'll update this as the turtle moves)
+local turtle_position = {x = 0, y = 0, z = 0}
+
+-- Function to move the turtle to a given position (x, y, z)
+local function move_to_position(x, y, z)
+    local dx = x - turtle_position.x
+    local dy = y - turtle_position.y
+    local dz = z - turtle_position.z
+
+    -- Move in x direction
+    if dx > 0 then
+        for i = 1, dx do
+            if not turtle.forward() then
+                print("Error: Failed to move forward")
+                return false
+            end
+        end
+    elseif dx < 0 then
+        for i = 1, -dx do
+            if not turtle.back() then
+                print("Error: Failed to move back")
+                return false
+            end
+        end
+    end
+
+    -- Move in y direction (vertical movement)
+    if dy > 0 then
+        for i = 1, dy do
+            if not turtle.up() then
+                print("Error: Failed to move up")
+                return false
+            end
+        end
+    elseif dy < 0 then
+        for i = 1, -dy do
+            if not turtle.down() then
+                print("Error: Failed to move down")
+                return false
+            end
+        end
+    end
+
+    -- Move in z direction (horizontal movement)
+    if dz > 0 then
+        -- Turn to face positive Z (if needed)
+        if turtle_position.x == 0 and turtle_position.y == 0 then
+            turtle.turnRight()
+            turtle.turnRight()
+        end
+        for i = 1, dz do
+            if not turtle.forward() then
+                print("Error: Failed to move forward on z axis")
+                return false
+            end
+        end
+        turtle.turnRight()
+        turtle.turnRight()
+    elseif dz < 0 then
+        -- Turn to face negative Z (if needed)
+        if turtle_position.x == 0 and turtle_position.y == 0 then
+            turtle.turnRight()
+        end
+        for i = 1, -dz do
+            if not turtle.forward() then
+                print("Error: Failed to move forward on z axis")
+                return false
+            end
+        end
+        turtle.turnLeft()
+        turtle.turnLeft()
+    end
+
+    -- Update the turtle's position
+    turtle_position.x = x
+    turtle_position.y = y
+    turtle_position.z = z
+    return true
+end
+
+-- Function to check if an item is a fuel source
+local function is_fuel(item)
+    return item.name == "minecraft:coal" or item.name == "minecraft:charcoal"
+end
+
+-- Function to refuel the turtle
+local function refuel_turtle()
+    if turtle.getFuelLevel() == "unlimited" then
+        return true
+    end
+
+    -- Search the turtle's inventory for fuel
+    for slot = 1, 16 do
+        local item = turtle.getItemDetail(slot)
+        if item and is_fuel(item) then
+            turtle.select(slot)
+            turtle.refuel(1)  -- Refuel one unit at a time
+            print("Refueled with " .. item.name)
+            return true
+        end
+    end
+    return false
+end
+
+-- Function to find and select the correct block
+local function select_block(block_name)
+    -- Search through the turtle's inventory for the correct block type
+    for slot = 1, 16 do
+        local item = turtle.getItemDetail(slot)
+        if item and item.name == "minecraft:" .. block_name then
+            turtle.select(slot)
+            return true
+        end
+    end
+    return false
+end
+
+-- Function to place the block
+local function place_block(block_name)
+    if select_block(block_name) then
+        turtle.placeDown()  -- Place the block below the turtle
+    else
+        print("No " .. block_name .. " in inventory!")
+    end
+end
+
+-- Function to build the schematic
+local function build_schematic()
+    for _, block_data in ipairs(schematic) do
+        -- Move to the position of each block and place it
+        if not move_to_position(block_data.x, block_data.y, block_data.z) then
+            print("Error: Could not move to position for " .. block_data.block)
+            return
+        end
+
+        -- Ensure the turtle has the correct material and fuel
+        if not refuel_turtle() then
+            print("Error: Could not refuel!")
+            return
+        end
+
+        -- Place the block at the correct position
+        place_block(block_data.block)
+    end
+end
+
+-- Start building the schematic
+build_schematic()
