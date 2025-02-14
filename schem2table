@@ -1,0 +1,60 @@
+import schematic
+import json
+
+# Function to get block name from block ID
+def get_block_name(block_id):
+    block_names = {
+        1: "stone", 2: "grass", 3: "dirt", 4: "cobblestone",
+        5: "planks", 6: "sapling", 7: "bedrock", 8: "water",
+        9: "lava", 10: "sand", 11: "gravel", 12: "gold_ore",
+        13: "iron_ore", 14: "coal_ore", 15: "wood", 16: "leaves",
+        17: "wooden_planks", 18: "wool", 19: "saplings", 20: "wooden_door",
+        # Add more block types as needed
+    }
+    return block_names.get(block_id, "unknown")
+
+# Load the schematic file using the `schematic` library
+def load_schematic(filename):
+    # Read the schematic file
+    schematic_data = schematic.load(filename)
+    blocks = []
+
+    # Iterate through all the blocks in the schematic
+    for x in range(schematic_data.width):
+        for y in range(schematic_data.height):
+            for z in range(schematic_data.length):
+                block_id = schematic_data.get_block(x, y, z)
+                if block_id != 0:  # Only include non-air blocks
+                    block_name = get_block_name(block_id)  # Map block ID to name
+                    blocks.append({
+                        'x': x,
+                        'y': y,
+                        'z': z,
+                        'block': block_name
+                    })
+
+    return blocks
+
+# Convert the schematic data into a Lua table format
+def convert_to_lua(blocks):
+    lua_table = "local schematic = {\n"
+    for block in blocks:
+        lua_table += f"    {{x={block['x']}, y={block['y']}, z={block['z']}, block='{block['block']}'}}},\n"
+    lua_table += "}\n"
+    return lua_table
+
+# Save the Lua table to a file
+def save_lua_file(lua_code, filename="schematic.lua"):
+    with open(filename, 'w') as file:
+        file.write(lua_code)
+    print(f"Lua file saved as {filename}")
+
+# Main function to load, convert, and save
+def main():
+    schematic_file = "path/to/your/schematic.schematic"  # Replace with your schematic file path
+    blocks = load_schematic(schematic_file)
+    lua_code = convert_to_lua(blocks)
+    save_lua_file(lua_code)
+
+if __name__ == "__main__":
+    main()
