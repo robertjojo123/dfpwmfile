@@ -1,0 +1,174 @@
+-- Define the start position and the target material chest position
+local startPosition = {x = 0, y = 0, z = 0}
+local materialChestPosition = {x = 5, y = 0, z = 0}
+local restockThreshold = 10  -- Threshold to trigger restocking
+local currentInventory = {['minecraft:dirt'] = 100, ['minecraft:grass'] = 100}  -- Sample inventory with item counts
+
+-- Function to check if inventory is low and restock
+local function isInventoryLow(material)
+    return currentInventory[material] < restockThreshold
+end
+
+-- Function to move the turtle to the target position, handles obstacles
+local function moveTo(target)
+    local dx = target.x - startPosition.x
+    local dz = target.z - startPosition.z
+    local dy = target.y - startPosition.y
+
+    -- Move in the X direction
+    for i = 1, math.abs(dx) do
+        local moved = false
+        while not moved do
+            if dx > 0 and turtle.forward() then
+                moved = true
+            elseif dx < 0 and turtle.back() then
+                moved = true
+            else
+                print("Obstacle encountered in X direction, trying up and over...")
+                turtle.up()
+                if dx > 0 then
+                    moved = turtle.forward()
+                else
+                    moved = turtle.back()
+                end
+                turtle.down()
+
+                -- If still blocked, try going backward (in reverse)
+                if not moved then
+                    print("Still blocked in X direction, moving backward...")
+                    if dx > 0 then
+                        turtle.back()
+                    else
+                        turtle.forward()
+                    end
+                    moved = true
+                end
+            end
+        end
+    end
+
+    -- Move in the Z direction
+    for i = 1, math.abs(dz) do
+        local moved = false
+        while not moved do
+            if dz > 0 and turtle.forward() then
+                moved = true
+            elseif dz < 0 and turtle.back() then
+                moved = true
+            else
+                print("Obstacle encountered in Z direction, trying up and over...")
+                turtle.up()
+                if dz > 0 then
+                    moved = turtle.forward()
+                else
+                    moved = turtle.back()
+                end
+                turtle.down()
+
+                -- If still blocked, try going backward (in reverse)
+                if not moved then
+                    print("Still blocked in Z direction, moving backward...")
+                    if dz > 0 then
+                        turtle.back()
+                    else
+                        turtle.forward()
+                    end
+                    moved = true
+                end
+            end
+        end
+    end
+
+    -- Handle Y (height) movement
+    if dy > 0 then
+        for i = 1, dy do
+            if not turtle.up() then
+                print("Trying to go up...")
+                turtle.up()
+            end
+        end
+    elseif dy < 0 then
+        for i = 1, -dy do
+            if not turtle.down() then
+                print("Trying to go down...")
+                turtle.down()
+            end
+        end
+    end
+
+    -- Update the start position after movement
+    startPosition = target
+    print("Successfully moved to " .. target.x .. ", " .. target.y .. ", " .. target.z)
+end
+
+-- Function to place a block
+local function placeBlock(blockType)
+    if turtle.getItemCount(1) == 0 then
+        print("Out of materials! Returning to material chest for restocking...")
+        moveTo(materialChestPosition)
+        restock(blockType)
+        moveTo(startPosition)  -- Move back to the building position
+    end
+
+    -- Select the material to place
+    local materialSlot = 1  -- Assuming the block type is in the first slot
+    turtle.select(materialSlot)
+
+    -- Place the block
+    if turtle.place() then
+        print("Placed a " .. blockType)
+        -- Decrease material count
+        currentInventory[blockType] = currentInventory[blockType] - 1
+    else
+        print("Failed to place block! Trying again...")
+        placeBlock(blockType)
+    end
+end
+
+-- Function to restock materials
+local function restock(blockType)
+    -- Move to the material chest
+    moveTo(materialChestPosition)
+
+    -- Check for available inventory
+    if blockType == 'minecraft:dirt' then
+        currentInventory['minecraft:dirt'] = 100  -- Restock to full
+    elseif blockType == 'minecraft:grass' then
+        currentInventory['minecraft:grass'] = 100  -- Restock to full
+    end
+    print("Restocked " .. blockType)
+
+    -- Return to the building position
+    moveTo(startPosition)
+end
+
+-- Define the schematic
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    {x = 0, y = 0, z = 0, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 1, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 2, block = 'minecraft:grass'},
+    {x = 0, y = 0, z = 3, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 4, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 5, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 0, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 1, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 2, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 3, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 4, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 5, block = 'minecraft:dirt'}
+}
+
+-- Function to build the schematic layer by layer
+local function buildSchematic()
+    for i, block in ipairs(schematic) do
+        local target = {x = block.x, y = block.y, z = block.z}
+        moveTo(target)  -- Move to the target position for block placement
+        placeBlock(block.block)  -- Place the block at the target position
+    end
+end
+
+-- Start building the schematic
+buildSchematic()
