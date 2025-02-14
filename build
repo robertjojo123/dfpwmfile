@@ -11,6 +11,9 @@ local function load_schematic()
     local schematic_data = file.readAll()
     file.close()
 
+    -- Replace the commas after the last block to avoid issues with table parsing
+    schematic_data = schematic_data:gsub(",%s*}", " }")
+
     -- Execute the content of the file and capture the schematic data
     local schematic, err = load(schematic_data, "schematic", "t", _G)
     if not schematic then
