@@ -1,124 +1,85 @@
--- Function to get the current position using GPS
-function get_current_position()
-    local x, y, z = gps.locate() -- Get current turtle position using GPS
-    if x and y and z then
-        print("Current Position: X=" .. x .. " Y=" .. y .. " Z=" .. z)
-        return x, y, z
-    else
-        print("GPS not available!")
-        return 0, 0, 0 -- Default to (0, 0, 0) if GPS is not available
-    end
-end
-
--- Function to move the turtle to the correct coordinates
-function move_to_position(x, y, z, offset_x, offset_y, offset_z)
-    -- Apply the offsets based on the turtle's current position
-    local target_x = offset_x + x
-    local target_y = offset_y + y
-    local target_z = offset_z + z
-    
-    local current_x, current_y, current_z = gps.locate() -- Get current turtle position using GPS
-    
-    -- Move to x
-    while current_x < target_x do
-        turtle.forward()
-        current_x = current_x + 1
-    end
-    while current_x > target_x do
-        turtle.back()
-        current_x = current_x - 1
-    end
-
-    -- Move to y
-    while current_y < target_y do
-        turtle.up()
-        current_y = current_y + 1
-    end
-    while current_y > target_y do
-        turtle.down()
-        current_y = current_y - 1
-    end
-
-    -- Move to z
-    while current_z < target_z do
-        turtle.forward()
-        current_z = current_z + 1
-    end
-    while current_z > target_z do
-        turtle.back()
-        current_z = current_z - 1
-    end
-end
-
--- Function to load the schematic from a file
-function load_schematic(filename)
-    local schematic = {}
-    
-    -- Open the file containing the schematic data
-    local file = fs.open(filename, "r")
-    if not file then
-        print("Error: Could not open file " .. filename)
-        return nil
-    end
-    
-    -- Read the file content
-    local content = file.readAll()
+-- Load the schematic data from the file
+local function load_schematic()
+    local file = fs.open("schematic.lua", "r")
+    local schematic_data = file.readAll()
     file.close()
-    
-    -- Run the content of the file (assuming it's a Lua table)
-    local success, result = pcall(loadstring(content))
-    if success then
-        print("Schematic loaded successfully.")
-        
-        -- Check if we have 'Short()' values, and work around them
-        -- Iterate through and convert the Short() calls into plain integers
-        if result.width and type(result.width) == "userdata" then
-            result.width = tonumber(tostring(result.width))
-        end
-        if result.height and type(result.height) == "userdata" then
-            result.height = tonumber(tostring(result.height))
-        end
-        if result.length and type(result.length) == "userdata" then
-            result.length = tonumber(tostring(result.length))
-        end
-        
-        -- Return the schematic
-        return result
-    else
-        print("Error loading schematic: " .. result)
-        return nil
-    end
+
+    -- Load the schematic table from the Lua file
+    local schematic = load(schematic_data)()
+
+    return schematic
 end
 
--- Function to build the schematic relative to the current position
-function build_schematic(schematic)
-    -- Get the turtle's current position
-    local current_x, current_y, current_z = get_current_position()
-
-    -- Iterate through the blocks in the schematic
-    for _, block in ipairs(schematic) do
-        -- Move the turtle to the correct relative coordinates
-        move_to_position(current_x, current_y, current_z, block.x, block.y, block.z)
-        
-        -- Select the block in the inventory
-        -- Assuming the turtle has the correct blocks in its inventory and can select the correct one
-        turtle.select(1) -- Select the first slot (you can adjust this depending on block types)
-        
-        -- Place the block at the current position
+-- Helper function to place a block based on the block name
+local function place_block(block)
+    -- The 'block' variable here will be a string, such as 'dirt', 'stone', etc.
+    -- The turtle automatically knows how to place most blocks, so we can directly use it.
+    if turtle.detectDown() then
+        -- If there's a block below, we won't place a new one, just move on
+        return
+    end
+    if turtle.getItemCount() > 0 then
         turtle.placeDown()
+    else
+        print("Not enough items in inventory to place block: " .. block)
     end
 end
 
--- Main function to load and build the schematic
-function main()
-    -- Load the schematic from the file "schem"
-    local schematic = load_schematic("schem")
-    
-    if schematic then
-        -- Start building the schematic relative to the turtle's current position
-        build_schematic(schematic)
+-- Function to move the turtle to the required coordinates relative to its starting position
+local function move_to(x, y, z)
+    -- Get the current position (relative to where the turtle started)
+    local current_x, current_y, current_z = 0, 0, 0 -- Assuming initial coordinates (adjust as needed)
+
+    -- Calculate the relative movement required
+    local dx = x - current_x
+    local dy = y - current_y
+    local dz = z - current_z
+
+    -- Move in the X direction (left or right)
+    if dx > 0 then
+        for i = 1, dx do
+            turtle.forward()
+        end
+    elseif dx < 0 then
+        for i = 1, -dx do
+            turtle.back()
+        end
+    end
+
+    -- Move in the Y direction (up or down)
+    if dy > 0 then
+        for i = 1, dy do
+            turtle.up()
+        end
+    elseif dy < 0 then
+        for i = 1, -dy do
+            turtle.down()
+        end
+    end
+
+    -- Move in the Z direction (left or right, or forwards/backwards)
+    if dz > 0 then
+        for i = 1, dz do
+            turtle.forward()
+        end
+    elseif dz < 0 then
+        for i = 1, -dz do
+            turtle.back()
+        end
     end
 end
 
--- Run the main function
-main()
+-- Build the schematic block-by-block
+local function build_schematic(schematic)
+    for _, block in ipairs(schematic) do
+        -- Move the turtle to the block's position
+        move_to(block.x, block.y, block.z)
+
+        -- Place the block
+        place_block(block.block)
+    end
+end
+
+-- Load the schematic and start building
+local schematic = load_schematic()
+build_schematic(schematic)
