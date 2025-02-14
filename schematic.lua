@@ -1,0 +1,17 @@
+local schematic = {
+    width = Short(2),
+    height = Short(1),
+    length = Short(6),
+    {x = 0, y = 0, z = 0, block = 'dirt', },
+    {x = 0, y = 0, z = 1, block = 'dirt', },
+    {x = 0, y = 0, z = 2, block = 'grass', },
+    {x = 0, y = 0, z = 3, block = 'dirt', },
+    {x = 0, y = 0, z = 4, block = 'dirt', },
+    {x = 0, y = 0, z = 5, block = 'dirt', },
+    {x = 1, y = 0, z = 0, block = 'dirt', },
+    {x = 1, y = 0, z = 1, block = 'dirt', },
+    {x = 1, y = 0, z = 2, block = 'dirt', },
+    {x = 1, y = 0, z = 3, block = 'dirt', },
+    {x = 1, y = 0, z = 4, block = 'dirt', },
+    {x = 1, y = 0, z = 5, block = 'dirt', },
+}
