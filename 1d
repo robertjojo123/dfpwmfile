@@ -1,0 +1,167 @@
+-- Define the schematic (block positions with types and coordinates)
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    -- Blocks in the schematic (x, y, z, block type)
+    {x = 0, y = 0, z = 0, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 1, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 2, block = 'minecraft:grass'},
+    {x = 0, y = 0, z = 3, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 4, block = 'minecraft:dirt'},
+    {x = 0, y = 0, z = 5, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 0, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 1, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 2, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 3, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 4, block = 'minecraft:dirt'},
+    {x = 1, y = 0, z = 5, block = 'minecraft:dirt'}
+}
+
+-- Define positions (adjust these as per your setup)
+local startPosition = {x = 0, y = 0, z = 0}      -- Starting position
+local materialChestPosition = {x = 5, y = 0, z = 0} -- Position of the material chest
+
+-- Keep track of the turtle's current position manually
+local currentPosition = {x = startPosition.x, y = startPosition.y, z = startPosition.z}
+
+-- Function to move to a specified position, handles obstacles by going up or around them
+local function moveTo(position)
+    -- Function to attempt moving up and over an obstacle
+    local function tryMoveUpOver()
+        turtle.up()
+        if not turtle.forward() then
+            turtle.down()
+            return false
+        end
+        return true
+    end
+
+    -- Function to attempt moving backwards if going up fails
+    local function tryMoveBackwards()
+        turtle.turnRight()
+        turtle.turnRight()
+        if turtle.forward() then
+            return true
+        else
+            turtle.turnLeft()
+            turtle.turnLeft()
+            return false
+        end
+    end
+
+    -- Move in the x-direction (left or right)
+    while currentPosition.x ~= position.x do
+        if currentPosition.x < position.x then
+            turtle.turnRight()
+            if not turtle.forward() then
+                if not tryMoveUpOver() then
+                    tryMoveBackwards()
+                end
+            end
+            currentPosition.x = currentPosition.x + 1
+        else
+            turtle.turnLeft()
+            if not turtle.forward() then
+                if not tryMoveUpOver() then
+                    tryMoveBackwards()
+                end
+            end
+            currentPosition.x = currentPosition.x - 1
+        end
+    end
+
+    -- Move in the z-direction (forward/backward)
+    while currentPosition.z ~= position.z do
+        if currentPosition.z < position.z then
+            if not turtle.forward() then
+                if not tryMoveUpOver() then
+                    tryMoveBackwards()
+                end
+            end
+            currentPosition.z = currentPosition.z + 1
+        else
+            if not turtle.forward() then
+                if not tryMoveUpOver() then
+                    tryMoveBackwards()
+                end
+            end
+            currentPosition.z = currentPosition.z - 1
+        end
+    end
+
+    -- Move in the y-direction (up/down)
+    if currentPosition.y < position.y then
+        turtle.up()
+        currentPosition.y = currentPosition.y + 1
+    elseif currentPosition.y > position.y then
+        turtle.down()
+        currentPosition.y = currentPosition.y - 1
+    end
+end
+
+-- Function to check if the turtle has enough of a specific block in its inventory
+local function hasBlock(blockType)
+    for slot = 1, 16 do
+        local item = turtle.getItemDetail(slot)
+        if item and item.name == blockType then
+            return true
+        end
+    end
+    return false
+end
+
+-- Function to restock materials from the chest
+local function restock(blockType)
+    -- Move to the material chest position
+    moveTo(materialChestPosition)
+
+    -- Ensure turtle is facing the chest
+    turtle.turnTo(0)  -- Assuming the chest is in front of the turtle
+
+    -- Restock the material by sucking items from the chest (we assume the chest is directly in front)
+    if not turtle.suck() then
+        print("Restocking failed, no items found.")
+    else
+        print("Restocked " .. blockType)
+    end
+
+    -- Move back to the starting position after restocking
+    moveTo(startPosition)
+end
+
+-- Function to place a block and check if more materials are needed
+local function placeBlock(blockType)
+    -- Check if the turtle has the block in its inventory
+    if not hasBlock(blockType) then
+        print("Not enough " .. blockType .. " in inventory, restocking.")
+        restock(blockType) -- Restock the material
+        return false
+    end
+    
+    -- Place the block in front of the turtle
+    if turtle.place() then
+        print("Placed " .. blockType)
+        return true
+    else
+        print("Failed to place " .. blockType)
+        return false
+    end
+end
+
+-- Function to build using the schematic (layer by layer)
+local function buildSchematic()
+    -- Loop through the blocks in the schematic
+    for _, block in ipairs(schematic) do
+        -- Move to each position in the schematic and place the respective block
+        moveTo({x = block.x, y = block.y, z = block.z})
+        
+        -- Try to place the block
+        if not placeBlock(block.block) then
+            print("Failed to place block at (" .. block.x .. "," .. block.y .. "," .. block.z .. ")")
+        end
+    end
+end
+
+-- Main building process
+buildSchematic()
