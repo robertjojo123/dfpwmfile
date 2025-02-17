@@ -20155,23 +20155,51 @@ local function canPlaceBlock()
     return not turtle.detectDown()  -- Ensures nothing is blocking placement
 end
 
--- Place Block Function (Now fully functional with post-restock retries)
+-- Function to check inventory after restocking
+local function printInventory()
+    print("🔍 Checking Inventory:")
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item then
+            print("Slot " .. i .. ": " .. item.name .. " x" .. item.count)
+        else
+            print("Slot " .. i .. ": EMPTY")
+        end
+    end
+end
+
+-- Function to check if placement is possible
+local function canPlaceBlock()
+    return not turtle.detectDown()  -- Ensures nothing is blocking placement
+end
+
+-- Place Block Function (Now fully debugged with forced selection and inventory checks)
 local function placeBlock(block)
     local function attemptPlacement()
-        for i = 1, 16 do  -- Scan through all inventory slots
+        print("🔄 Attempting to place: " .. block)
+
+        -- Force the turtle to scan all inventory slots
+        for i = 1, 16 do
             local item = turtle.getItemDetail(i)
             if item and item.name == "minecraft:"..block then
-                turtle.select(i)
-                if canPlaceBlock() then  -- Check if there's space to place
+                print("✅ Found " .. block .. " in slot " .. i .. " (" .. item.count .. " remaining)")
+                turtle.select(i)  -- Force selection of correct block
+                
+                -- Verify placement isn't blocked
+                if canPlaceBlock() then  
                     if turtle.placeDown() then
-                        return true  -- Successfully placed block
+                        print("✅ Successfully placed: " .. block)
+                        return true
+                    else
+                        print("❌ Placement failed for unknown reasons")
                     end
                 else
-                    print("Placement blocked, unable to place "..block)
-                    return false
+                    print("🚫 Placement blocked by another block")
                 end
             end
         end
+
+        print("❌ No available " .. block .. " found in inventory")
         return false  -- No block found or placement blocked
     end
 
@@ -20181,9 +20209,10 @@ local function placeBlock(block)
     end
 
     -- If block isn't found, attempt restocking
-    print("No " .. block .. " found, attempting restock...")
+    print("🛠️ No " .. block .. " found, attempting restock...")
     if restock(block) then
-        print("Restocked successfully, retrying block placement...")
+        print("🔄 Restocked successfully, checking inventory again...")
+        printInventory()  -- Print out inventory after restocking
 
         -- Move back to previous position and attempt again
         returnToLastPosition()
@@ -20193,7 +20222,7 @@ local function placeBlock(block)
     end
 
     -- If all attempts fail, stop
-    print("Build halted: Unable to place " .. block)
+    print("❌ Build halted: Unable to place " .. block)
     return false
 end
 
