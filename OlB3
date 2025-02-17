@@ -20150,10 +20150,10 @@ end
 
 
 
--- Place Block Function (Now cycles through inventory and retries after restocking)
+-- Place Block Function (Now properly retries after restocking)
 local function placeBlock(block)
-    for attempt = 1, 2 do  -- Attempt twice: first cycle through inventory, then restock if needed
-        for i = 1, 16 do
+    local function attemptPlacement()
+        for i = 1, 16 do  -- Cycle through inventory slots
             local item = turtle.getItemDetail(i)
             if item and item.name == "minecraft:"..block then
                 turtle.select(i)
@@ -20162,20 +20162,31 @@ local function placeBlock(block)
                 end
             end
         end
+        return false  -- No block found in inventory
+    end
 
-        -- If first attempt failed, try restocking before retrying
-        if attempt == 1 then
-            print("No " .. block .. " found, attempting restock...")
-            if not restock(block) then
-                print("Restock failed. No materials available for " .. block)
-                return false  -- Stop if restocking was unsuccessful
-            end
+    -- First attempt to place the block normally
+    if attemptPlacement() then
+        return true
+    end
+
+    -- If block isn't found, attempt restocking
+    print("No " .. block .. " found, attempting restock...")
+    if restock(block) then
+        print("Restocked successfully, retrying block placement...")
+
+        -- Move back to previous position and attempt again
+        returnToLastPosition()
+        if attemptPlacement() then
+            return true
         end
     end
 
+    -- If restocking fails or block still cannot be placed, stop
     print("Build halted: Unable to place " .. block)
     return false
 end
+
 
 -- Build Schematic
 local function buildSchematic()
