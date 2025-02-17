@@ -1,0 +1,133 @@
+import nbtlib
+import os
+import numpy as np
+import psutil  # To check available system memory
+
+# Set a memory limit for safety (in MB)
+MEMORY_LIMIT_MB = 2048  # Adjust based on your system
+
+# Block ID to Block Name Mapping (Extended list)
+block_names = {
+    1: "stone", 2: "grass", 3: "dirt", 4: "cobblestone",
+    5: "planks", 6: "sapling", 7: "bedrock", 8: "water",
+    9: "lava", 10: "sand", 11: "gravel", 12: "gold_ore",
+    13: "iron_ore", 14: "coal_ore", 15: "wood", 16: "leaves",
+    17: "wooden_planks", 18: "wool", 19: "saplings", 20: "wooden_door",
+    21: "beacon", 22: "black_wool", 23: "block_of_gold", 24: "block_of_quartz",
+    25: "block_of_redstone", 26: "allium", 27: "azure_bluet", 28: "blue_orchid",
+    29: "bricks", 30: "brick_slab", 31: "chiseled_quartz_block", 32: "chiseled_sandstone",
+    33: "chiseled_stone_bricks", 34: "clay", 35: "cobblestone", 36: "cobblestone_stairs",
+    37: "cobblestone_wall", 38: "dandelion", 39: "dirt", 40: "double_tallgrass", 
+    41: "fern", 42: "glowstone", 43: "granite", 44: "grass (plant)", 45: "grass_block",
+    46: "gravel", 47: "jungle_leaves", 48: "large_fern", 49: "lever", 50: "light_gray_wool",
+    51: "lilac", 52: "lily_pad", 53: "moss_stone", 54: "mossy_stone_bricks", 55: "netherrack",
+    56: "oak_fence", 57: "oak_leaves", 58: "oak_wood", 59: "oak_wood_planks", 60: "orange_tulip",
+    61: "oxeye_daisy", 62: "packed_ice", 63: "peony", 64: "pillar_quartz_block", 65: "pink_tulip",
+    66: "poppy", 67: "quartz_slab", 68: "quartz_stairs", 69: "red_tulip", 70: "redstone_lamp",
+    71: "rose_bush", 72: "sand", 73: "sandstone", 74: "sandstone_slab", 75: "sandstone_stairs",
+    76: "smooth_sandstone", 77: "snow (layer)", 78: "snow (block)", 79: "spruce_wood_planks",
+    80: "spruce_wood_slab", 81: "spruce_wood_stairs", 82: "stone", 83: "stone_brick_stairs",
+    84: "stone_bricks", 85: "stone_brick_slab", 86: "sunflower", 87: "vines", 88: "water",
+    89: "water_bucket", 90: "white_tulip", 91: "white_wool"
+}
+
+# Function to get block name from block ID
+def get_block_name(block_id):
+    return block_names.get(block_id, f"unknown ({block_id})")
+
+# Check system memory before processing
+def check_memory_usage(width, height, length):
+    estimated_usage_mb = (width * height * length * 2) / (1024 * 1024)  # Rough estimate in MB
+    available_memory_mb = psutil.virtual_memory().available / (1024 * 1024)
+
+    print(f"Estimated memory needed: {estimated_usage_mb:.2f} MB")
+    print(f"Available memory: {available_memory_mb:.2f} MB")
+
+    if estimated_usage_mb > MEMORY_LIMIT_MB or estimated_usage_mb > available_memory_mb * 0.75:
+        print("\n⚠ WARNING: This schematic is too large and may crash your system!")
+        proceed = input("Continue processing? (yes/no): ").strip().lower()
+        if proceed != 'yes':
+            print("Processing aborted.")
+            return False
+    return True
+
+# Load the schematic file and extract block data
+def load_schematic(filename):
+    try:
+        if not os.path.isfile(filename):
+            raise FileNotFoundError(f"The file '{filename}' was not found.")
+        
+        schematic_data = nbtlib.load(filename)
+
+        width = int(schematic_data['Width'])
+        height = int(schematic_data['Height'])
+        length = int(schematic_data['Length'])
+
+        # Check memory usage
+        if not check_memory_usage(width, height, length):
+            return None, None, None, None
+
+        blocks = np.array(schematic_data.get('Blocks', []), dtype=np.uint8)
+        data = np.array(schematic_data.get('Data', []), dtype=np.uint8) if 'Data' in schematic_data else None
+
+        if blocks.size == 0:
+            raise ValueError("Blocks data not found in schematic.")
+
+        total_blocks = width * height * length
+        chunk_size = min(1000000, total_blocks)  # Process in chunks of max 1 million blocks
+
+        structured_blocks = []
+
+        print("\nProcessing blocks...")
+
+        for start in range(0, total_blocks, chunk_size):
+            end = min(start + chunk_size, total_blocks)
+            chunk_blocks = blocks[start:end]
+            chunk_x = (start + np.arange(len(chunk_blocks))) % width
+            chunk_y = ((start + np.arange(len(chunk_blocks))) // width) % height
+            chunk_z = (start + np.arange(len(chunk_blocks))) // (width * height)
+
+            chunk_names = np.vectorize(get_block_name)(chunk_blocks)
+
+            for i in range(len(chunk_blocks)):
+                structured_blocks.append({
+                    'x': int(chunk_x[i]), 'y': int(chunk_y[i]), 'z': int(chunk_z[i]),
+                    'block': chunk_names[i], 'data': int(data[start + i]) if data is not None else None
+                })
+            
+            print(f"Processed {end}/{total_blocks} blocks...")
+
+        return structured_blocks, width, height, length
+
+    except Exception as e:
+        print(f"Error loading schematic: {e}")
+        return None, None, None, None
+
+# Convert to Lua
+def convert_to_lua(blocks, width, height, length):
+    lua_table = f"local schematic = {{\n    width = {width},\n    height = {height},\n    length = {length},\n"
+    lua_table += "\n".join(
+        f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = '{block['block']}', data = {block['data']} }}"
+        if block['data'] is not None else
+        f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = '{block['block']}' }}"
+        for block in blocks
+    )
+    lua_table += "\n}\n"
+    return lua_table
+
+# Save the Lua file
+def save_lua_file(lua_code, filename="schematic.lua"):
+    with open(filename, 'w') as file:
+        file.write(lua_code)
+    print(f"Lua file saved as {filename}")
+
+# Main function
+def main():
+    schematic_file = input("Enter the path to the schematic file: ").strip()
+    blocks, width, height, length = load_schematic(schematic_file)
+    if blocks:
+        lua_code = convert_to_lua(blocks, width, height, length)
+        save_lua_file(lua_code)
+
+if __name__ == "__main__":
+    main()
