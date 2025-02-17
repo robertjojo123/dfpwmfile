@@ -1,0 +1,119 @@
+import nbtlib
+import os
+import numpy as np
+
+# Function to map block ID to block name (Extended list)
+block_names = {
+    1: "stone", 2: "grass", 3: "dirt", 4: "cobblestone",
+    5: "planks", 6: "sapling", 7: "bedrock", 8: "water",
+    9: "lava", 10: "sand", 11: "gravel", 12: "gold_ore",
+    13: "iron_ore", 14: "coal_ore", 15: "wood", 16: "leaves",
+    17: "wooden_planks", 18: "wool", 19: "saplings", 20: "wooden_door",
+    21: "beacon", 22: "black_wool", 23: "block_of_gold", 24: "block_of_quartz",
+    25: "block_of_redstone", 26: "allium", 27: "azure_bluet", 28: "blue_orchid",
+    29: "bricks", 30: "brick_slab", 31: "chiseled_quartz_block", 32: "chiseled_sandstone",
+    33: "chiseled_stone_bricks", 34: "clay", 35: "cobblestone", 36: "cobblestone_stairs",
+    37: "cobblestone_wall", 38: "dandelion", 39: "dirt", 40: "double_tallgrass", 
+    41: "fern", 42: "glowstone", 43: "granite", 44: "grass (plant)", 45: "grass_block",
+    46: "gravel", 47: "jungle_leaves", 48: "large_fern", 49: "lever", 50: "light_gray_wool",
+    51: "lilac", 52: "lily_pad", 53: "moss_stone", 54: "mossy_stone_bricks", 55: "netherrack",
+    56: "oak_fence", 57: "oak_leaves", 58: "oak_wood", 59: "oak_wood_planks", 60: "orange_tulip",
+    61: "oxeye_daisy", 62: "packed_ice", 63: "peony", 64: "pillar_quartz_block", 65: "pink_tulip",
+    66: "poppy", 67: "quartz_slab", 68: "quartz_stairs", 69: "red_tulip", 70: "redstone_lamp",
+    71: "rose_bush", 72: "sand", 73: "sandstone", 74: "sandstone_slab", 75: "sandstone_stairs",
+    76: "smooth_sandstone", 77: "snow (layer)", 78: "snow (block)", 79: "spruce_wood_planks",
+    80: "spruce_wood_slab", 81: "spruce_wood_stairs", 82: "stone", 83: "stone_brick_stairs",
+    84: "stone_bricks", 85: "stone_brick_slab", 86: "sunflower", 87: "vines", 88: "water",
+    89: "water_bucket", 90: "white_tulip", 91: "white_wool"
+}
+
+# Function to get block name from block ID
+def get_block_name(block_id):
+    return block_names.get(block_id, f"unknown ({block_id})")
+
+# Load the schematic file and extract block data
+def load_schematic(filename):
+    try:
+        # Check if file exists
+        if not os.path.isfile(filename):
+            raise FileNotFoundError(f"The file '{filename}' was not found.")
+        
+        # Load the .schematic file using nbtlib
+        schematic_data = nbtlib.load(filename)
+        
+        # Extract schematic dimensions
+        width = int(schematic_data['Width'])
+        height = int(schematic_data['Height'])
+        length = int(schematic_data['Length'])
+        
+        # Extract block IDs and metadata (if available)
+        blocks = np.array(schematic_data.get('Blocks', []), dtype=np.uint8)
+        data = np.array(schematic_data.get('Data', []), dtype=np.uint8) if 'Data' in schematic_data else None
+        
+        if blocks.size == 0:
+            raise ValueError("Blocks data not found in schematic.")
+        
+        # Compute block positions efficiently using NumPy
+        total_blocks = width * height * length
+        indices = np.arange(total_blocks)
+
+        x_positions = indices % width
+        y_positions = (indices // width) % height
+        z_positions = indices // (width * height)
+
+        # Vectorized block name lookup
+        block_names_array = np.vectorize(get_block_name)(blocks)
+
+        # Create structured array for fast iteration
+        structured_blocks = np.array(
+            list(zip(x_positions, y_positions, z_positions, block_names_array, data if data is not None else [None] * total_blocks)),
+            dtype=[('x', int), ('y', int), ('z', int), ('block', 'U50'), ('data', 'O')]
+        )
+
+        return structured_blocks, width, height, length
+
+    except Exception as e:
+        print(f"Error loading schematic: {e}")
+        return None, None, None, None
+
+# Convert the block data to a Lua-compatible table
+def convert_to_lua(blocks, width, height, length):
+    lua_table = f"local schematic = {{\n    width = {width},\n    height = {height},\n    length = {length},\n"
+
+    # List comprehension for fast string construction
+    lua_table += "\n".join(
+        f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = '{block['block']}', data = {block['data']} }}"
+        if block['data'] is not None else
+        f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = '{block['block']}' }}"
+        for block in blocks
+    )
+    
+    lua_table += "\n}\n"
+    return lua_table
+
+# Save the Lua table to a file
+def save_lua_file(lua_code, filename="schematic.lua"):
+    try:
+        with open(filename, 'w') as file:
+            file.write(lua_code)
+        print(f"Lua file saved as {filename}")
+    except Exception as e:
+        print(f"Error saving Lua file: {e}")
+
+# Main function to load, convert, and save the schematic data
+def main():
+    # Prompt the user for the schematic file path
+    schematic_file = input("Enter the path to the schematic file (e.g., 'schematic.schematic'): ").strip()
+    
+    blocks, width, height, length = load_schematic(schematic_file)
+    if blocks is not None:
+        # Convert block data to Lua
+        lua_code = convert_to_lua(blocks, width, height, length)
+        
+        # Save the Lua code to a file
+        save_lua_file(lua_code)
+    else:
+        print("Failed to load schematic data.")
+
+if __name__ == "__main__":
+    main()
