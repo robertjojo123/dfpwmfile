@@ -21050,7 +21050,7 @@ local materialChests = {
     ["minecraft:stone"] = {x = -1, y = 0, z = -4}
 }
 
--- Forward declare all functions to prevent nil value errors
+-- Forward declare functions to prevent nil value errors
 local turnLeft, turnRight, savePosition, returnToLastPosition
 local refuelTurtle, tryMove, moveForward, moveTo, restock, placeBlock, buildSchematic
 
@@ -21078,23 +21078,33 @@ returnToLastPosition = function()
     while pos.dir ~= lastPos.dir do turnRight() end
 end
 
--- Refuel Function (Moves to Fuel Chest, Sucks 3 Items, Refuels)
+-- Refuel Function (Prevents Infinite Loop)
 refuelTurtle = function()
+    if turtle.getFuelLevel() >= 1000 then
+        return -- Already has enough fuel, no need to refuel
+    end
+
     print("⛽ Low fuel! Moving to fuel chest.")
     savePosition()
     moveTo(fuelChest)
+
     while pos.dir ~= 3 do turnLeft() end -- Face the chest
 
+    local refueled = false
     for i = 1, 3 do
         if turtle.suck(1) then
             turtle.refuel()
+            refueled = true
         else
             print("❌ Fuel chest is empty! Build halted.")
             return false
         end
     end
 
-    print("✅ Refueled successfully!")
+    if refueled then
+        print("✅ Refueled successfully!")
+    end
+
     returnToLastPosition()
     return true
 end
@@ -21143,6 +21153,10 @@ moveForward = function()
 end
 
 moveTo = function(target)
+    if turtle.getFuelLevel() < 1000 then
+        refuelTurtle()
+    end
+
     while pos.x ~= target.x do
         if pos.x < target.x then
             while pos.dir ~= 1 do turnRight() end
