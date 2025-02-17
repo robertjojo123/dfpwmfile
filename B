@@ -20233,28 +20233,32 @@ local function buildSchematic()
         local target = {x = blockData.x, y = blockData.y, z = blockData.z}
         moveTo(target)
 
-        -- Try to place the block
+        local placed = false  -- Track whether the block was placed
+
+        -- Attempt placement normally
         if placeBlock(blockData.block) then
-            goto continue  -- Successfully placed, move to next block
-        end
-
-        -- If placement failed, attempt restocking
-        print("⚠️ Placement failed, attempting restock for: " .. blockData.block)
-        if restock(blockData.block) then
-            print("🔄 Restock successful, returning and retrying...")
-            returnToLastPosition()
-
-            -- Attempt placement again after restocking
-            if placeBlock(blockData.block) then
-                goto continue  -- Successfully placed, move to next block
-            else
-                print("❌ Even after restocking, failed to place: " .. blockData.block)
-            end
+            placed = true
         else
-            print("❌ Restock failed for: " .. blockData.block .. ". Skipping...")
+            -- If placement fails, attempt restocking
+            print("⚠️ Placement failed, attempting restock for: " .. blockData.block)
+            if restock(blockData.block) then
+                print("🔄 Restock successful, returning and retrying...")
+                returnToLastPosition()
+
+                -- Attempt placement again after restocking
+                if placeBlock(blockData.block) then
+                    placed = true
+                else
+                    print("❌ Even after restocking, failed to place: " .. blockData.block)
+                end
+            else
+                print("❌ Restock failed for: " .. blockData.block .. ". Skipping...")
+            end
         end
 
-        ::continue::
+        if not placed then
+            print("⚠️ Unable to place " .. blockData.block .. " at (" .. target.x .. ", " .. target.y .. ", " .. target.z .. ")")
+        end
     end
     print("✅ Schematic build complete!")
 end
