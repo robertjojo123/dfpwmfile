@@ -20098,54 +20098,52 @@ local materialChests = {
     grass = {x = -1, y = 0, z = -4}
 }
 
--- Restock Function (Now moves to the correct chest per material)
+-- Restock Function (Now returns `true` if restock was successful)
 local function restock(block)
-    local chestPos = materialChests[block]
-    
-    if not chestPos then
-        print("No assigned chest for: " .. block)
-        return false
-    end
-
     print("Restocking: " .. block)
     savePosition()
-    moveTo(chestPos)  -- Move to the correct material chest
+    moveTo(materialChest)
     while pos.dir ~= 3 do turnLeft() end -- Face the chest
 
     local maxStacks = stackLimits[block] or 1
     local currentStacks = countItemStacks(block)
     local neededStacks = maxStacks - currentStacks
 
-    if neededStacks > 0 then
-        print("Need to restock " .. neededStacks .. " stacks of " .. block)
+    if neededStacks <= 0 then
+        print("🔄 Already stocked with enough " .. block)
+        return true  -- No need to restock
+    end
 
-        local inventorySlot = 1  -- Start from slot 1 in turtle's inventory
+    print("Need to restock " .. neededStacks .. " stacks of " .. block)
 
-        -- Try pulling until we get the needed amount
-        for _ = 1, neededStacks do
-            if inventorySlot > 16 then
-                print("Inventory full, can't restock more.")
-                break
-            end
+    local inventorySlot = 1  -- Start from slot 1 in turtle's inventory
+    local success = false  -- Track if we successfully restocked
 
-            turtle.select(inventorySlot)
-            if turtle.suck(64) then  -- Pull items from the chest
-                local suckedItem = turtle.getItemDetail()
-                if suckedItem and suckedItem.name == "minecraft:" .. block then
-                    print("Collected " .. suckedItem.count .. " of " .. block)
-                    inventorySlot = inventorySlot + 1  -- Move to next inventory slot
-                else
-                    print("Warning: Chest might be empty for " .. block)
-                    break  -- Stop restocking if the chest is empty
-                end
+    for _ = 1, neededStacks do
+        if inventorySlot > 16 then
+            print("❌ Inventory full, can't restock more.")
+            break
+        end
+
+        turtle.select(inventorySlot)
+        if turtle.suck(64) then  -- Pull items from the chest
+            local suckedItem = turtle.getItemDetail()
+            if suckedItem and suckedItem.name == "minecraft:" .. block then
+                print("✅ Collected " .. suckedItem.count .. " of " .. block)
+                inventorySlot = inventorySlot + 1  -- Move to next inventory slot
+                success = true
             else
-                print("Error: Could not pull from chest, possibly empty.")
-                break
+                print("⚠️ Picked up wrong item, dropping...")
+                turtle.drop()  -- Put back the wrong item
             end
+        else
+            print("❌ Could not pull from chest, possibly empty.")
+            break
         end
     end
 
     returnToLastPosition()
+    return success  -- Return `true` if restocking was successful
 end
 
 
@@ -20229,17 +20227,34 @@ end
 
 
 
--- Build Schematic
+-- Build Schematic Function (Now properly retries placement after restocking)
 local function buildSchematic()
     for _, blockData in ipairs(schematic) do
         local target = {x = blockData.x, y = blockData.y, z = blockData.z}
         moveTo(target)
-        if not placeBlock(blockData.block) then
-            print("Unable to place block at ("..blockData.x..", "..blockData.y..", "..blockData.z..")")
-            return
-        end
-    end
-    print("Schematic completed.")
-end
 
-buildSchematic()
+        -- Try to place the block
+        if placeBlock(blockData.block) then
+            goto continue  -- Successfully placed, move to next block
+        end
+
+        -- If placement failed, attempt restocking
+        print("⚠️ Placement failed, attempting restock for: " .. blockData.block)
+        if restock(blockData.block) then
+            print("🔄 Restock successful, returning and retrying...")
+            returnToLastPosition()
+
+            -- Attempt placement again after restocking
+            if placeBlock(blockData.block) then
+                goto continue  -- Successfully placed, move to next block
+            else
+                print("❌ Even after restocking, failed to place: " .. blockData.block)
+            end
+        else
+            print("❌ Restock failed for: " .. blockData.block .. ". Skipping...")
+        end
+
+        ::continue::
+    end
+    print("✅ Schematic build complete!")
+end
