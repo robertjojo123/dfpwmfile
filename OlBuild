@@ -20089,12 +20089,27 @@ local function countItemStacks(block)
     return count
 end
 
--- Restock Function
--- Restock Function (Improved Chest Scanning)
+-- Define where each material's chest is located (relative to start position)
+local materialChests = {
+    dirt = {x = -1, y = 0, z = 0},
+    cobblestone = {x = -2, y = 0, z = 0},
+    stone = {x = -3, y = 0, z = 0},
+    wool = {x = -4, y = 0, z = 0},
+    grass = {x = -5, y = 0, z = 0}
+}
+
+-- Restock Function (Now moves to the correct chest per material)
 local function restock(block)
-    print("Restocking: "..block)
+    local chestPos = materialChests[block]
+    
+    if not chestPos then
+        print("No assigned chest for: " .. block)
+        return false
+    end
+
+    print("Restocking: " .. block)
     savePosition()
-    moveTo(materialChest)
+    moveTo(chestPos)  -- Move to the correct material chest
     while pos.dir ~= 3 do turnLeft() end -- Face the chest
 
     local maxStacks = stackLimits[block] or 1
@@ -20104,24 +20119,35 @@ local function restock(block)
     if neededStacks > 0 then
         print("Need to restock " .. neededStacks .. " stacks of " .. block)
 
-        for i = 1, 27 do -- Cycle through chest slots
-            if neededStacks <= 0 then break end -- Stop if we restocked enough
+        local inventorySlot = 1  -- Start from slot 1 in turtle's inventory
 
-            turtle.select(1) -- Select an inventory slot
-            if turtle.suck(64) then -- Pull items from the chest
+        -- Try pulling until we get the needed amount
+        for _ = 1, neededStacks do
+            if inventorySlot > 16 then
+                print("Inventory full, can't restock more.")
+                break
+            end
+
+            turtle.select(inventorySlot)
+            if turtle.suck(64) then  -- Pull items from the chest
                 local suckedItem = turtle.getItemDetail()
-                if suckedItem and suckedItem.name == "minecraft:"..block then
+                if suckedItem and suckedItem.name == "minecraft:" .. block then
                     print("Collected " .. suckedItem.count .. " of " .. block)
-                    neededStacks = neededStacks - math.ceil(suckedItem.count / 64)
+                    inventorySlot = inventorySlot + 1  -- Move to next inventory slot
                 else
-                    turtle.drop() -- Drop unwanted items back into chest
+                    print("Warning: Chest might be empty for " .. block)
+                    break  -- Stop restocking if the chest is empty
                 end
+            else
+                print("Error: Could not pull from chest, possibly empty.")
+                break
             end
         end
     end
 
     returnToLastPosition()
 end
+
 
 
 -- Place Block Function (Restocks if Completely Out)
