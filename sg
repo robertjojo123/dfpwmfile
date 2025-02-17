@@ -1,0 +1,162 @@
+-- Position Tracking
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0}
+
+-- Material Chest Locations (Relative to Start)
+local materialChests = {
+    ["minecraft:clay"] = {x = -1, y = 0, z = 0},
+    ["minecraft:grass_block"] = {x = -2, y = 0, z = 0},
+    ["minecraft:dirt"] = {x = -3, y = 0, z = 0},
+    ["minecraft:pillar_quartz_block"] = {x = -4, y = 0, z = 0},
+    ["minecraft:oak_wood"] = {x = -5, y = 0, z = 0},
+    ["minecraft:oak_leaves"] = {x = -6, y = 0, z = 0},
+    ["minecraft:stone"] = {x = -7, y = 0, z = 0},
+    ["minecraft:stone_brick_stairs"] = {x = -8, y = 0, z = 0},
+    ["minecraft:stone_bricks"] = {x = -9, y = 0, z = 0},
+    ["minecraft:stone_slab"] = {x = -10, y = 0, z = 0},
+    ["minecraft:white_wool"] = {x = -11, y = 0, z = 0}
+}
+
+-- Functions for movement
+local function turnLeft()
+    turtle.turnLeft()
+    pos.dir = (pos.dir - 1) % 4
+end
+
+local function turnRight()
+    turtle.turnRight()
+    pos.dir = (pos.dir + 1) % 4
+end
+
+local function moveForward()
+    while not turtle.forward() do
+        if turtle.detect() then
+            turtle.dig()
+        else
+            print("❌ Stuck! Cannot move forward.")
+            return false
+        end
+    end
+
+    -- Update position tracking
+    if pos.dir == 0 then pos.z = pos.z + 1
+    elseif pos.dir == 1 then pos.x = pos.x + 1
+    elseif pos.dir == 2 then pos.z = pos.z - 1
+    elseif pos.dir == 3 then pos.x = pos.x - 1
+    end
+
+    return true
+end
+
+local function moveTo(target)
+    while pos.x ~= target.x do
+        if pos.x < target.x then
+            while pos.dir ~= 1 do turnRight() end
+        else
+            while pos.dir ~= 3 do turnRight() end
+        end
+        moveForward()
+    end
+    
+    while pos.z ~= target.z do
+        if pos.z < target.z then
+            while pos.dir ~= 0 do turnRight() end
+        else
+            while pos.dir ~= 2 do turnRight() end
+        end
+        moveForward()
+    end
+end
+
+local function savePosition()
+    lastPos.x = pos.x
+    lastPos.y = pos.y
+    lastPos.z = pos.z
+    lastPos.dir = pos.dir
+end
+
+local function returnToLastPosition()
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turnRight() end
+end
+
+-- Restock Function (Now Moves to the Correct Chest for Each Material)
+local function restock(block)
+    print("🛠️ Restocking: " .. block)
+
+    -- Find correct chest for material
+    local chestPos = materialChests["minecraft:" .. block]
+    if not chestPos then
+        print("❌ No chest assigned for: " .. block)
+        return false
+    end
+
+    savePosition()
+    moveTo(chestPos)  -- Move to the correct material chest
+    while pos.dir ~= 3 do turnLeft() end -- Face the chest
+
+    local success = false
+    for chestSlot = 1, 16 do
+        turtle.select(chestSlot)
+        local itemDetail = turtle.getItemDetail()
+        if not itemDetail then
+            turtle.select(chestSlot)
+            for i = 1, 27 do -- Cycle through chest slots
+                if turtle.suck(64) then
+                    local suckedItem = turtle.getItemDetail()
+                    if suckedItem and suckedItem.name == "minecraft:" .. block then
+                        print("✅ Restocked " .. block)
+                        success = true
+                        break
+                    else
+                        turtle.drop() -- Drop unwanted items back into chest
+                    end
+                end
+            end
+        end
+        if success then break end
+    end
+    
+    if not success then
+        print("❌ Out of stock in chest for: " .. block)
+    end
+
+    returnToLastPosition()
+    return success
+end
+
+-- Place Block Function (Restocks if Completely Out)
+local function placeBlock(block)
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == "minecraft:"..block then
+            turtle.select(i)
+            if turtle.placeDown() then
+                return true
+            end
+        end
+    end
+    
+    -- If out of block, restock
+    if restock(block) then
+        return placeBlock(block)
+    else
+        print("❌ Build halted: Out of " .. block)
+        return false
+    end
+end
+
+-- Build Schematic
+local function buildSchematic()
+    for _, blockData in ipairs(schematic) do
+        local target = {x = blockData.x, y = blockData.y, z = blockData.z}
+        moveTo(target)
+        if not placeBlock(blockData.block) then
+            print("❌ Unable to place block at ("..blockData.x..", "..blockData.y..", "..blockData.z..")")
+            return
+        end
+    end
+    print("✅ Schematic completed.")
+end
+
+buildSchematic()
