@@ -20090,6 +20090,7 @@ local function countItemStacks(block)
 end
 
 -- Restock Function
+-- Restock Function (Improved Chest Scanning)
 local function restock(block)
     print("Restocking: "..block)
     savePosition()
@@ -20099,23 +20100,29 @@ local function restock(block)
     local maxStacks = stackLimits[block] or 1
     local currentStacks = countItemStacks(block)
     local neededStacks = maxStacks - currentStacks
-    
-    for chestSlot = 1, neededStacks do
+
+    if neededStacks > 0 then
+        print("Need to restock " .. neededStacks .. " stacks of " .. block)
+
         for i = 1, 27 do -- Cycle through chest slots
-            turtle.select(chestSlot)
-            if turtle.suck(64) then
+            if neededStacks <= 0 then break end -- Stop if we restocked enough
+
+            turtle.select(1) -- Select an inventory slot
+            if turtle.suck(64) then -- Pull items from the chest
                 local suckedItem = turtle.getItemDetail()
                 if suckedItem and suckedItem.name == "minecraft:"..block then
-                    print("Restocked "..block)
+                    print("Collected " .. suckedItem.count .. " of " .. block)
+                    neededStacks = neededStacks - math.ceil(suckedItem.count / 64)
                 else
                     turtle.drop() -- Drop unwanted items back into chest
                 end
             end
         end
     end
-    
+
     returnToLastPosition()
 end
+
 
 -- Place Block Function (Restocks if Completely Out)
 local function placeBlock(block)
