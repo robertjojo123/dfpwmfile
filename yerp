@@ -1,0 +1,184 @@
+-- Schematic Data
+local schematic = {
+    width = 2,
+    height = 1,
+    length = 6,
+    {x = 0, y = 0, z = 0, block = 'dirt'},
+    {x = 0, y = 0, z = 1, block = 'dirt'},
+    {x = 0, y = 0, z = 2, block = 'grass'},
+    {x = 0, y = 0, z = 3, block = 'dirt'},
+    {x = 0, y = 0, z = 4, block = 'dirt'},
+    {x = 0, y = 0, z = 5, block = 'dirt'},
+    {x = 1, y = 0, z = 0, block = 'dirt'},
+    {x = 1, y = 0, z = 1, block = 'dirt'},
+    {x = 1, y = 0, z = 2, block = 'dirt'},
+    {x = 1, y = 0, z = 3, block = 'dirt'},
+    {x = 1, y = 0, z = 4, block = 'dirt'},
+    {x = 1, y = 0, z = 5, block = 'dirt'}
+}
+
+-- Position Tracking
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0}
+
+-- Material Chest Location (Relative to Start)
+local materialChest = {x = -1, y = 0, z = 0} -- 1 block to the left of start
+
+-- Functions for movement
+local function turnLeft()
+    turtle.turnLeft()
+    pos.dir = (pos.dir - 1) % 4
+end
+
+local function turnRight()
+    turtle.turnRight()
+    pos.dir = (pos.dir + 1) % 4
+end
+
+local function tryMove(moveFunc, detectFunc, attackFunc, upAndOver)
+    while not moveFunc() do
+        if detectFunc() then
+            attackFunc()
+        else
+            if upAndOver then
+                if turtle.up() then
+                    pos.y = pos.y + 1
+                    if moveFunc() then
+                        if turtle.down() then
+                            pos.y = pos.y - 1
+                        end
+                    end
+                else
+                    turnLeft()
+                    turnLeft()
+                    if moveFunc() then
+                        turnLeft()
+                        turnLeft()
+                    else
+                        turnRight()
+                        if moveFunc() then
+                            turnLeft()
+                        else
+                            turnLeft()
+                            if moveFunc() then
+                                turnRight()
+                            else
+                                print("Stuck! Cannot navigate obstacle.")
+                                return false
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return true
+end
+
+local function moveForward()
+    if tryMove(turtle.forward, turtle.detect, turtle.attack, true) then
+        if pos.dir == 0 then pos.z = pos.z + 1
+        elseif pos.dir == 1 then pos.x = pos.x + 1
+        elseif pos.dir == 2 then pos.z = pos.z - 1
+        elseif pos.dir == 3 then pos.x = pos.x - 1
+        end
+    end
+end
+
+local function moveTo(target)
+    while pos.x ~= target.x do
+        if pos.x < target.x then
+            while pos.dir ~= 1 do turnRight() end
+        else
+            while pos.dir ~= 3 do turnRight() end
+        end
+        moveForward()
+    end
+    
+    while pos.z ~= target.z do
+        if pos.z < target.z then
+            while pos.dir ~= 0 do turnRight() end
+        else
+            while pos.dir ~= 2 do turnRight() end
+        end
+        moveForward()
+    end
+end
+
+local function savePosition()
+    lastPos.x = pos.x
+    lastPos.y = pos.y
+    lastPos.z = pos.z
+    lastPos.dir = pos.dir
+end
+
+local function returnToLastPosition()
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turnRight() end
+end
+
+-- Restock Function
+local function restock(block)
+    print("Restocking: "..block)
+    savePosition()
+    moveTo(materialChest)
+    while pos.dir ~= 3 do turnLeft() end -- Face the chest
+
+    for chestSlot = 1, 16 do
+        turtle.select(chestSlot)
+        local itemDetail = turtle.getItemDetail()
+        if not itemDetail then
+            turtle.select(chestSlot)
+            for i = 1, 27 do -- Cycle through chest slots
+                if turtle.suck(64) then
+                    local suckedItem = turtle.getItemDetail()
+                    if suckedItem and suckedItem.name == "minecraft:"..block then
+                        print("Restocked "..block)
+                        returnToLastPosition()
+                        return true
+                    else
+                        turtle.drop() -- Drop unwanted items back into chest
+                    end
+                end
+            end
+        end
+    end
+    
+    print("Out of stock in chest: "..block)
+    return false
+end
+
+-- Place Block Function (Restocks if Completely Out)
+local function placeBlock(block)
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == "minecraft:"..block then
+            turtle.select(i)
+            turtle.placeDown()
+            return true
+        end
+    end
+    
+    -- If out of block, restock
+    if restock(block) then
+        return placeBlock(block)
+    else
+        print("Build halted: Out of "..block)
+        return false
+    end
+end
+
+-- Build Schematic
+local function buildSchematic()
+    for _, blockData in ipairs(schematic) do
+        local target = {x = blockData.x, y = blockData.y, z = blockData.z}
+        moveTo(target)
+        if not placeBlock(blockData.block) then
+            print("Unable to place block at ("..blockData.x..", "..blockData.y..", "..blockData.z..")")
+            return
+        end
+    end
+    print("Schematic completed.")
+end
+
+buildSchematic()
