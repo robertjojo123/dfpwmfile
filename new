@@ -139,17 +139,16 @@ local function restock(block)
     moveTo(materialChest)
     while pos.dir ~= 3 do turnLeft() end -- Face the chest
 
-    for slot = 1, 16 do
-        local item = turtle.getItemDetail(slot)
-        if item and item.name == "minecraft:"..block and item.count == 1 then
-            turtle.select(slot)
-            local needed = 63
-            for chestSlot = 1, 16 do
-                if turtle.suck(needed) then
-                    print("Restocked "..block)
-                    returnToLastPosition()
-                    return true
-                end
+    for chestSlot = 1, 16 do
+        turtle.select(chestSlot)
+        local itemDetail = turtle.getItemDetail()
+        if itemDetail and itemDetail.name == "minecraft:"..block then
+            local space = 64 - turtle.getItemCount()
+            turtle.suck(space)
+            if turtle.getItemCount() > 0 then
+                print("Restocked "..block)
+                returnToLastPosition()
+                return true
             end
         end
     end
@@ -158,26 +157,24 @@ local function restock(block)
     return false
 end
 
--- Place Block Function (Restocks if One Left)
+-- Place Block Function (Restocks if Completely Out)
 local function placeBlock(block)
     for i = 1, 16 do
         local item = turtle.getItemDetail(i)
         if item and item.name == "minecraft:"..block then
-            if item.count == 1 then
-                if restock(block) then
-                    return placeBlock(block)
-                else
-                    print("Build halted: Out of "..block)
-                    return false
-                end
-            end
             turtle.select(i)
             turtle.placeDown()
             return true
         end
     end
-    print("Out of block: "..block)
-    return false
+    
+    -- If out of block, restock
+    if restock(block) then
+        return placeBlock(block)
+    else
+        print("Build halted: Out of "..block)
+        return false
+    end
 end
 
 -- Build Schematic
