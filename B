@@ -20150,11 +20150,6 @@ end
 
 
 
--- Function to check if placement is possible
-local function canPlaceBlock()
-    return not turtle.detectDown()  -- Ensures nothing is blocking placement
-end
-
 -- Function to check inventory after restocking
 local function printInventory()
     print("🔍 Checking Inventory:")
@@ -20173,34 +20168,40 @@ local function canPlaceBlock()
     return not turtle.detectDown()  -- Ensures nothing is blocking placement
 end
 
--- Place Block Function (Now fully debugged with forced selection and inventory checks)
+-- Place Block Function (Final Debugged Version)
 local function placeBlock(block)
     local function attemptPlacement()
         print("🔄 Attempting to place: " .. block)
 
-        -- Force the turtle to scan all inventory slots
+        -- Scan through inventory slots
         for i = 1, 16 do
             local item = turtle.getItemDetail(i)
-            if item and item.name == "minecraft:"..block then
-                print("✅ Found " .. block .. " in slot " .. i .. " (" .. item.count .. " remaining)")
-                turtle.select(i)  -- Force selection of correct block
-                
-                -- Verify placement isn't blocked
-                if canPlaceBlock() then  
-                    if turtle.placeDown() then
-                        print("✅ Successfully placed: " .. block)
-                        return true
+            if item then
+                print("🔎 Slot " .. i .. " contains: " .. item.name .. " (" .. item.count .. ")")
+
+                -- Check if the block name matches
+                if item.name == "minecraft:"..block then
+                    print("✅ Found " .. block .. " in slot " .. i .. ", selecting...")
+                    turtle.select(i)  -- Select the correct slot
+
+                    -- Confirm if placement is possible
+                    if canPlaceBlock() then
+                        print("🛠️ Attempting to place block...")
+                        if turtle.placeDown() then
+                            print("✅ Successfully placed: " .. block)
+                            return true
+                        else
+                            print("❌ turtle.placeDown() failed!")
+                        end
                     else
-                        print("❌ Placement failed for unknown reasons")
+                        print("🚫 Placement is blocked!")
                     end
-                else
-                    print("🚫 Placement blocked by another block")
                 end
             end
         end
 
-        print("❌ No available " .. block .. " found in inventory")
-        return false  -- No block found or placement blocked
+        print("❌ No matching block found in inventory")
+        return false  -- No block found or placement failed
     end
 
     -- First attempt to place the block normally
@@ -20225,6 +20226,7 @@ local function placeBlock(block)
     print("❌ Build halted: Unable to place " .. block)
     return false
 end
+
 
 
 -- Build Schematic
