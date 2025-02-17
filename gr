@@ -20019,7 +20019,8 @@ local materialChests = {
     ["minecraft:stone_brick_stairs"] = {x = -1, y = 0, z = -7},
     ["minecraft:stone_bricks"] = {x = -1, y = 0, z = -8},
     ["minecraft:stone_slab"] = {x = -1, y = 0, z = -9},
-    ["minecraft:white_wool"] = {x = -1, y = 0, z = -10}
+    ["minecraft:white_wool"] = {x = -1, y = 0, z = -10},
+    ["minecraft:cobblestone"] = {x = -1, y = 0, z = -11}
 }
 
 -- Functions for movement
