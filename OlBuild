@@ -20092,10 +20092,10 @@ end
 -- Define where each material's chest is located (relative to start position)
 local materialChests = {
     dirt = {x = -1, y = 0, z = 0},
-    cobblestone = {x = -2, y = 0, z = 0},
-    stone = {x = -3, y = 0, z = 0},
-    wool = {x = -4, y = 0, z = 0},
-    grass = {x = -5, y = 0, z = 0}
+    cobblestone = {x = -1, y = 0, z = -1},
+    stone = {x = -1, y = 0, z = -2},
+    wool = {x = -1, y = 0, z = -3},
+    grass = {x = -1, y = 0, z = -4}
 }
 
 -- Restock Function (Now moves to the correct chest per material)
