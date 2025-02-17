@@ -6,7 +6,7 @@ import time
 MINECRAFT_CHUNK_SIZE = 16  # 16x16 chunk size
 MAX_BLOCKS_PER_FILE = 25000  # Max blocks per Lua file
 
-# Mapping block IDs and data values to their Minecraft names
+# Function to map block IDs and data values to names
 def get_block_name(block_id, data_value):
     block_names = {
         (0, 0): "air",
@@ -32,11 +32,17 @@ def get_block_name(block_id, data_value):
         (91, 0): "jack_o_lantern", (89, 0): "glowstone", (56, 0): "diamond_ore",
         (87, 0): "netherrack", (88, 0): "soul_sand", (168, 0): "prismarine", (168, 1): "prismarine_bricks",
         (168, 2): "dark_prismarine", (169, 0): "sea_lantern", (98, 0): "stone_bricks",
-        (98, 1): "mossy_stone_bricks", (98, 2): "cracked_stone_bricks", (98, 3): "chiseled_stone_bricks"
+        (98, 1): "mossy_stone_bricks", (98, 2): "cracked_stone_bricks", (98, 3): "chiseled_stone_bricks",
+        # Stairs
+        (53, 0): "oak_stairs", (134, 0): "spruce_stairs", (135, 0): "birch_stairs",
+        (136, 0): "jungle_stairs", (163, 0): "acacia_stairs", (164, 0): "dark_oak_stairs",
+        (67, 0): "stone_stairs", (108, 0): "brick_stairs", (109, 0): "stone_brick_stairs",
+        (114, 0): "nether_brick_stairs", (128, 0): "sandstone_stairs", (180, 0): "red_sandstone_stairs",
+        (156, 0): "quartz_stairs", (203, 0): "purpur_stairs"
     }
     return block_names.get((block_id, data_value), f"unknown ({block_id}:{data_value})")
 
-# Load schematic and process block data into 16x16 chunks
+# Load schematic and process block data
 def load_schematic(filename):
     if not os.path.isfile(filename):
         print(f"❌ File not found: {filename}")
@@ -54,21 +60,21 @@ def load_schematic(filename):
 
     structured_chunks = {}
 
-    print("\n🔄 Processing blocks into 16x16 chunks (ensuring correct Y-order)...")
+    print("\n🔄 Processing blocks into 16x16 chunks...")
     
-    # Process blocks **chunk by chunk**
+    # Process blocks chunk by chunk
     for chunk_x in range(0, width, MINECRAFT_CHUNK_SIZE):
         for chunk_z in range(0, length, MINECRAFT_CHUNK_SIZE):
             chunk_key = (chunk_x, chunk_z)
             structured_chunks[chunk_key] = []
 
-            for y in range(height):  # Ensure bottom-to-top Y ordering
+            for y in range(height):
                 for x in range(chunk_x, min(chunk_x + MINECRAFT_CHUNK_SIZE, width)):
                     for z in range(chunk_z, min(chunk_z + MINECRAFT_CHUNK_SIZE, length)):
-                        i = y * width * length + z * width + x  # Correct indexing
+                        i = y * width * length + z * width + x
                         block_id = int(blocks[i])
                         data_value = int(data_values[i])
-                        if block_id != 0:  # Skip air blocks
+                        if block_id != 0:
                             structured_chunks[chunk_key].append({
                                 'x': x,
                                 'y': y,
@@ -79,40 +85,24 @@ def load_schematic(filename):
     print(f"✅ All blocks sorted into {len(structured_chunks)} chunks.\n")
     return structured_chunks, width, height, length
 
-# Convert chunks into Lua files, ensuring no file exceeds 25,000 blocks
-def convert_to_lua(structured_chunks, width, height, length):
-    print("📝 Converting to Lua format...")
+# Debug: Print first few blocks for verification
+def debug_check(structured_chunks):
+    print("\n🔍 Debug Check: First few stored blocks")
+    for chunk, blocks in structured_chunks.items():
+        for block in blocks[:5]:
+            print(block)
+        break
 
-    lua_files = []
-    chunk_keys = list(structured_chunks.keys())
-    start_time = time.time()
+# Main function
+def main():
+    schematic_file = input("Enter schematic file path: ").strip()
+    structured_chunks, width, height, length = load_schematic(schematic_file)
 
-    current_chunk_set = []
-    current_block_count = 0
-    file_index = 1
+    if structured_chunks:
+        debug_check(structured_chunks)
+        print("\n✅ Block storage verified. Proceeding to conversion...")
+    else:
+        print("❌ No valid chunks found. Exiting.")
 
-    for chunk_key in chunk_keys:
-        chunk_blocks = structured_chunks[chunk_key]
-
-        # Check if adding this chunk would exceed the block limit
-        if current_block_count + len(chunk_blocks) > MAX_BLOCKS_PER_FILE:
-            lua_table = f"local schematic = {{\n    width = {width},\n    height = {height},\n    length = {length},\n"
-            lua_table += ",\n".join(
-                f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = '{block['block']}' }}"
-                for block in current_chunk_set
-            )
-            lua_table += "\n}\n"
-
-            filename = f"schematic_{file_index}.lua"
-            lua_files.append((filename, lua_table))
-            print(f"   🔄 Saved file {file_index} containing {current_block_count} blocks.")
-            
-            file_index += 1
-            current_chunk_set = []
-            current_block_count = 0
-
-        current_chunk_set.extend(chunk_blocks)
-        current_block_count += len(chunk_blocks)
-
-    print(f"✅ Lua conversion completed in {time.time() - start_time:.2f} seconds.\n")
-    return lua_files
+if __name__ == "__main__":
+    main()
