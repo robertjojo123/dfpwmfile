@@ -20150,19 +20150,29 @@ end
 
 
 
--- Place Block Function (Now properly retries after restocking)
+-- Function to check if placement is possible
+local function canPlaceBlock()
+    return not turtle.detectDown()  -- Ensures nothing is blocking placement
+end
+
+-- Place Block Function (Now fully functional with post-restock retries)
 local function placeBlock(block)
     local function attemptPlacement()
-        for i = 1, 16 do  -- Cycle through inventory slots
+        for i = 1, 16 do  -- Scan through all inventory slots
             local item = turtle.getItemDetail(i)
             if item and item.name == "minecraft:"..block then
                 turtle.select(i)
-                if turtle.placeDown() then
-                    return true  -- Successfully placed block
+                if canPlaceBlock() then  -- Check if there's space to place
+                    if turtle.placeDown() then
+                        return true  -- Successfully placed block
+                    end
+                else
+                    print("Placement blocked, unable to place "..block)
+                    return false
                 end
             end
         end
-        return false  -- No block found in inventory
+        return false  -- No block found or placement blocked
     end
 
     -- First attempt to place the block normally
@@ -20182,7 +20192,7 @@ local function placeBlock(block)
         end
     end
 
-    -- If restocking fails or block still cannot be placed, stop
+    -- If all attempts fail, stop
     print("Build halted: Unable to place " .. block)
     return false
 end
