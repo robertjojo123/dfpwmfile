@@ -58,7 +58,7 @@ def load_schematic(filename):
 def convert_to_lua(blocks, width, height, length):
     lua_table = f"local schematic = {{\n    width = {width},\n    height = {height},\n    length = {length},\n"
     for block in blocks:
-        lua_table += f"    {{x={block['x']}, y={block['y']}, z={block['z']}, block='{block['block']}'}}},\n"
+        lua_table += f"    {{x={block['x']}, y={block['y']}, z={block['z']}, block='{block['block']}'}},\n"
     lua_table += "}\n"
     return lua_table
 
