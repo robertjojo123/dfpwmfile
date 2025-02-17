@@ -20150,24 +20150,31 @@ end
 
 
 
--- Place Block Function (Restocks if Completely Out)
+-- Place Block Function (Now cycles through inventory and retries after restocking)
 local function placeBlock(block)
-    for i = 1, 16 do
-        local item = turtle.getItemDetail(i)
-        if item and item.name == "minecraft:"..block then
-            turtle.select(i)
-            turtle.placeDown()
-            return true
+    for attempt = 1, 2 do  -- Attempt twice: first cycle through inventory, then restock if needed
+        for i = 1, 16 do
+            local item = turtle.getItemDetail(i)
+            if item and item.name == "minecraft:"..block then
+                turtle.select(i)
+                if turtle.placeDown() then
+                    return true  -- Successfully placed block
+                end
+            end
+        end
+
+        -- If first attempt failed, try restocking before retrying
+        if attempt == 1 then
+            print("No " .. block .. " found, attempting restock...")
+            if not restock(block) then
+                print("Restock failed. No materials available for " .. block)
+                return false  -- Stop if restocking was unsuccessful
+            end
         end
     end
-    
-    -- If out of block, restock
-    if restock(block) then
-        return placeBlock(block)
-    else
-        print("Build halted: Out of "..block)
-        return false
-    end
+
+    print("Build halted: Unable to place " .. block)
+    return false
 end
 
 -- Build Schematic
