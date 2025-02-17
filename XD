@@ -21061,6 +21061,39 @@ local function turnRight()
     pos.dir = (pos.dir + 1) % 4
 end
 
+local function savePosition()
+    lastPos.x = pos.x
+    lastPos.y = pos.y
+    lastPos.z = pos.z
+    lastPos.dir = pos.dir
+end
+
+local function returnToLastPosition()
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turnRight() end
+end
+
+-- Refuel Function (Moves to Fuel Chest, Sucks 3 Items, Refuels)
+local function refuelTurtle()
+    print("⛽ Low fuel! Moving to fuel chest.")
+    savePosition()
+    moveTo(fuelChest)
+    while pos.dir ~= 3 do turnLeft() end -- Face the chest
+
+    for i = 1, 3 do
+        if turtle.suck(1) then
+            turtle.refuel()
+        else
+            print("❌ Fuel chest is empty! Build halted.")
+            return false
+        end
+    end
+
+    print("✅ Refueled successfully!")
+    returnToLastPosition()
+    return true
+end
+
 local function tryMove(moveFunc, detectFunc)
     local attempts = 0
     while not moveFunc() do
@@ -21122,39 +21155,6 @@ local function moveTo(target)
         end
         moveForward()
     end
-end
-
-local function savePosition()
-    lastPos.x = pos.x
-    lastPos.y = pos.y
-    lastPos.z = pos.z
-    lastPos.dir = pos.dir
-end
-
-local function returnToLastPosition()
-    moveTo(lastPos)
-    while pos.dir ~= lastPos.dir do turnRight() end
-end
-
--- Refuel Function (Moves to Fuel Chest, Sucks 3 Items, Refuels)
-local function refuelTurtle()
-    print("⛽ Low fuel! Moving to fuel chest.")
-    savePosition()
-    moveTo(fuelChest)
-    while pos.dir ~= 3 do turnLeft() end -- Face the chest
-
-    for i = 1, 3 do
-        if turtle.suck(1) then
-            turtle.refuel()
-        else
-            print("❌ Fuel chest is empty! Build halted.")
-            return false
-        end
-    end
-
-    print("✅ Refueled successfully!")
-    returnToLastPosition()
-    return true
 end
 
 -- Restock Function
@@ -21254,8 +21254,6 @@ local function buildSchematic()
     end
     print("✅ Schematic completed.")
 end
-
-buildSchematic()
 
 buildSchematic()
 
