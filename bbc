@@ -25223,7 +25223,7 @@ buildSchematic = function()
     for _, blockData in ipairs(blocks) do
         moveTo(blockData)
 
-        if not validBlocks[blockData.block] then
+        if not validBlocks["minecraft:" .. blockData.block] then
             print("⏩ Skipping unrecognized block ")
         else
             if not placeBlock(blockData.block) then
