@@ -1,0 +1,140 @@
+import nbtlib 
+import os
+import numpy as np
+import time
+
+MINECRAFT_CHUNK_SIZE = 16  # 16x16 chunk size
+MAX_BLOCKS_PER_FILE = 25000  # Max blocks per Lua file
+
+# Store unique unknown blocks encountered
+unknown_blocks_set = set()
+
+# Function to map block IDs and data values to names
+def get_block_name(block_id, data_value):
+    block_names = {
+        # Basic blocks
+        (0, 0): "air",
+        (1, 0): "stone", (1, 1): "granite", (1, 2): "polished_granite",
+        (1, 3): "diorite", (1, 4): "polished_diorite", (1, 5): "andesite", (1, 6): "polished_andesite",
+        (2, 0): "grass_block", (3, 0): "dirt", (3, 1): "coarse_dirt", (3, 2): "podzol",
+        (4, 0): "cobblestone",
+
+        # Clay Block Fix
+        (82, 0): "clay",
+
+        # Stone Bricks and Variants
+        (98, 0): "stone_bricks",
+        (98, 1): "mossy_stone_bricks",
+        (98, 2): "cracked_stone_bricks",
+        (98, 3): "chiseled_stone_bricks",
+
+        # Quartz Blocks and Variants
+        (155, 0): "quartz_block",
+        (155, 1): "chiseled_quartz_block",
+        (155, 2): "pillar_quartz_block",
+        (156, 0): "quartz_stairs",
+        (44, 7): "quartz_slab",
+
+        # Stairs
+        (53, 0): "oak_stairs", (134, 0): "spruce_stairs", (135, 0): "birch_stairs",
+        (136, 0): "jungle_stairs", (163, 0): "acacia_stairs", (164, 0): "dark_oak_stairs",
+        (67, 0): "cobblestone_stairs", (108, 0): "brick_stairs", (109, 0): "stone_brick_stairs",
+        (114, 0): "nether_brick_stairs", (128, 0): "sandstone_stairs", (180, 0): "red_sandstone_stairs",
+        (156, 0): "quartz_stairs", (203, 0): "purpur_stairs",
+
+        # Miscellaneous
+        (138, 0): "beacon", (89, 0): "glowstone", (169, 0): "sea_lantern",
+        (123, 0): "redstone_lamp", (46, 0): "tnt", (31, 1): "grass", (31, 2): "fern",
+        (37, 0): "dandelion", (38, 0): "poppy", (38, 1): "blue_orchid", (38, 2): "allium",
+        (38, 3): "azure_bluet", (38, 4): "red_tulip", (38, 5): "orange_tulip",
+        (38, 6): "white_tulip", (38, 7): "pink_tulip", (38, 8): "oxeye_daisy",
+        (175, 0): "sunflower", (175, 1): "lilac", (175, 2): "double_tallgrass",
+        (175, 3): "large_fern", (175, 4): "rose_bush", (175, 5): "peony",
+        (106, 0): "vines", (111, 0): "lily_pad", (0, 0): "water", (326, 0): "water_bucket"
+    }
+    
+    block_name = block_names.get((block_id, data_value))
+    if block_name is None:
+        unknown_blocks_set.add((block_id, data_value))  # Store unknown block
+        return f"unknown ({block_id}:{data_value})"
+    return block_name
+
+# Load schematic and process block data
+def load_schematic(filename):
+    if not os.path.isfile(filename):
+        print(f"❌ File not found: {filename}")
+        return None, None, None, None
+
+    print("📂 Loading schematic file...")
+    start_time = time.time()
+
+    schematic_data = nbtlib.load(filename)
+    width, height, length = int(schematic_data['Width']), int(schematic_data['Height']), int(schematic_data['Length'])
+    blocks = np.array(schematic_data.get('Blocks', []), dtype=np.uint8)
+    data_values = np.array(schematic_data.get('Data', []), dtype=np.uint8)
+
+    print(f"✅ Schematic loaded in {time.time() - start_time:.2f} seconds.")
+
+    structured_chunks = {}
+
+    print("\n🔄 Processing blocks into 16x16 chunks...")
+
+    for chunk_x in range(0, width, MINECRAFT_CHUNK_SIZE):
+        for chunk_z in range(0, length, MINECRAFT_CHUNK_SIZE):
+            chunk_key = (chunk_x, chunk_z)
+            structured_chunks[chunk_key] = []
+
+            for y in range(height):
+                for x in range(chunk_x, min(chunk_x + MINECRAFT_CHUNK_SIZE, width)):
+                    for z in range(chunk_z, min(chunk_z + MINECRAFT_CHUNK_SIZE, length)):
+                        i = y * width * length + z * width + x
+                        block_id = int(blocks[i])
+                        data_value = int(data_values[i])
+                        if block_id != 0:
+                            structured_chunks[chunk_key].append({
+                                'x': x,
+                                'y': y,
+                                'z': z,
+                                'name': get_block_name(block_id, data_value)
+                            })
+
+    print(f"✅ All blocks sorted into {len(structured_chunks)} chunks.\n")
+    return structured_chunks, width, height, length
+
+# Debug: Print first few blocks for verification
+def debug_check(structured_chunks):
+    print("\n🔍 Debug Check: First few stored blocks")
+    for chunk, blocks in structured_chunks.items():
+        for block in blocks[:5]:
+            print(block)
+        break
+
+# Display unknown blocks at the end of processing
+def print_unknown_blocks():
+    if unknown_blocks_set:
+        print("\n⚠️  **Unknown Blocks Encountered** ⚠️")
+        print("These block IDs and data values were not found in the mapping:")
+        for block_id, data_value in sorted(unknown_blocks_set):
+            print(f"  - Unknown Block: (ID: {block_id}, Data: {data_value})")
+    else:
+        print("\n✅ No unknown blocks found. Everything mapped correctly!")
+
+# Main function
+def main():
+    schematic_file = input("Enter schematic file path: ").strip()
+    structured_chunks, width, height, length = load_schematic(schematic_file)
+
+    if structured_chunks:
+        debug_check(structured_chunks)
+        print("\n✅ Block storage verified. Proceeding to conversion...")
+
+        # Conversion logic goes here...
+
+        # Print unknown blocks after conversion
+        print_unknown_blocks()
+
+    else:
+        print("❌ No valid chunks found. Exiting.")
+
+if __name__ == "__main__":
+    main()
