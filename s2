@@ -109,23 +109,51 @@ def debug_check(structured_chunks):
 
 # Convert to Lua table format
 # Convert structured chunks to Lua table format
-def convert_to_lua(structured_chunks):
-    lua_code = "local blocks = {\n"
-    block_count = 0  # Counter for total converted blocks
+MAX_BLOCKS_PER_FILE = 25000  # Max blocks per Lua file
+
+def convert_to_lua(structured_chunks, output_prefix="output"):
+    block_count = 0  
+    file_count = 1
+    current_file_blocks = []
+    current_chunk_count = 0  # To keep track of chunks in the current file
+    chunk_limit = len(structured_chunks)  # Total chunks
+
+    def write_lua_file(file_index, blocks):
+        """ Writes a Lua file with the given blocks """
+        filename = f"{output_prefix}_{file_index}.lua"
+        try:
+            with open(filename, "w", encoding="utf-8") as lua_file:
+                lua_file.write("local blocks = {\n")
+                for block in blocks:
+                    lua_file.write(f"    {{ {block['x']}, {block['y']}, {block['z']}, \"{block['block']}\" }},\n")
+                lua_file.write("}\nreturn blocks\n")  # Close Lua table
+            print(f"✅ Saved {filename} with {len(blocks)} blocks.")
+        except Exception as e:
+            print(f"❌ Error writing {filename}: {e}")
+
+    print(f"📝 Converting {chunk_limit} chunks into Lua files...")
 
     for chunk, blocks in structured_chunks.items():
-        for block in blocks:
-            block_entry = f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = \"{block['block']}\"}},\n"
-            lua_code += block_entry
-            block_count += 1
+        if block_count + len(blocks) > MAX_BLOCKS_PER_FILE:
+            # Save current file and start a new one
+            write_lua_file(file_count, current_file_blocks)
+            file_count += 1
+            current_file_blocks = []  # Reset for next file
+            block_count = 0
 
-            # Print progress every 10,000 blocks
-            if block_count % 10000 == 0:
-                print(f"🔄 Processing block {block_count}...")
+        # Add the entire chunk (ensuring full 16x16 chunks per file)
+        current_file_blocks.extend(blocks)
+        block_count += len(blocks)
+        current_chunk_count += 1
 
-    lua_code += "}\nreturn blocks\n"  # Close Lua table
-    print(f"✅ Total blocks converted: {block_count}")
-    return lua_code
+        if block_count % 10000 < len(blocks):  # Print every 10,000 blocks
+            print(f"🔄 Processed {block_count} blocks across {current_chunk_count} chunks...")
+
+    # Write the last remaining blocks
+    if current_file_blocks:
+        write_lua_file(file_count, current_file_blocks)
+
+    print(f"✅ Conversion complete! {file_count} Lua files generated.")
 
 # Save Lua file
 def save_lua_file(lua_code, output_filename="output.lua"):
