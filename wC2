@@ -4,6 +4,8 @@ import numpy as np
 import time
 from collections import defaultdict
 
+MINECRAFT_CHUNK_SIZE = 16  # 16x16 chunk size
+MAX_BLOCKS_PER_FILE = 25000  # Max blocks per Lua file
 # Dictionary to track unknown blocks
 unknown_blocks_count = defaultdict(int)
 
