@@ -38,10 +38,10 @@ def get_block_name(block_id, data_value):
         (5, 3): "jungle_planks", (5, 4): "acacia_planks", (5, 5): "dark_oak_planks",
 
         # Wood Logs
-        (17, 0): "oak_wood", (17, 1): "spruce_wood", (17, 2): "birch_wood", (17, 3): "jungle_wood",
+        (17, 0): "oak_wood", (17, 1): "oak_wood", (17, 2): "oak_wood", (17, 3): "oak_wood",
 
         # Leaves
-        (18, 0): "oak_leaves", (18, 3): "jungle_leaves",
+        (18, 0): "oak_leaves", (18, 1): "oak_leaves", (18, 2): "oak_leaves", (18, 3): "oak_leaves",
 
         # Wool Colors
         (35, 0): "white_wool", (35, 1): "orange_wool", (35, 2): "magenta_wool",
@@ -64,41 +64,67 @@ def get_block_name(block_id, data_value):
         (44, 0): "stone_slab", (44, 3): "cobblestone_slab",
         (44, 4): "brick_slab", (44, 5): "stone_brick_slab", (44, 6): "nether_brick_slab",
 
-        # Double Slabs
+        # Double Slabs (Fixed Unknown 44:x mappings)
         (43, 0): "stone_double_slab", (43, 1): "sandstone_double_slab",
         (43, 3): "cobblestone_double_slab", (43, 4): "brick_double_slab",
         (43, 5): "stone_brick_double_slab", (43, 6): "nether_brick_double_slab",
         (181, 0): "red_sandstone_double_slab",
-        (43, 8): "smooth_stone_double_slab",
-        (43, 9): "smooth_sandstone_double_slab",
+        (43, 8): "sandstone_double_slab",  # Convert 44:8 to 44:1
+        (43, 9): "stone_brick_double_slab",  # Convert 44:9 to 44:2
 
         # Wooden Stairs Variants
         (53, 0): "oak_stairs", (134, 0): "spruce_stairs", (135, 0): "birch_stairs",
         (136, 0): "jungle_stairs", (163, 0): "acacia_stairs", (164, 0): "dark_oak_stairs",
 
         # Stone Brick Stairs Variants
-        (109, 0): "stone_brick_stairs", (109, 1): "mossy_stone_brick_stairs",
-        (109, 2): "cracked_stone_brick_stairs", (109, 3): "chiseled_stone_brick_stairs",
+        (109, 0): "stone_brick_stairs",
 
         # Other Stairs
         (67, 0): "cobblestone_stairs", (108, 0): "brick_stairs",
         (114, 0): "nether_brick_stairs",
 
-        # Cobblestone Wall Variants
-        (139, 0): "cobblestone_wall", (139, 1): "mossy_cobblestone_wall",
-
-        # Redstone & Other
-        (41, 0): "gold_block", (87, 0): "netherrack", (85, 0): "oak_fence",
-        (123, 0): "redstone_lamp", (152, 0): "redstone_block"
+        # Fixed Unknowns
+        (124, 0): "redstone_lamp",
+        (125, 0): "double_oak_wood_slab",
+        (126, 0): "spruce_wood_slab",
+        (128, 0): "sandstone_stairs",
+        (138, 0): "beacon"
     }
 
     # Ignore specific block IDs from being reported as unknown
     ignored_block_ids = {9, 31, 37, 38, 51, 69, 78, 80, 106, 111, 175}
 
+    # Fixing unknown mappings
+    if block_id == 17:
+        return "oak_wood"
+    elif block_id == 18:
+        return "oak_leaves"
+    elif block_id == 44 and data_value >= 8:
+        return block_names.get((44, data_value - 7), f"unknown ({block_id}:{data_value})")  # Fix slab variants
+    elif block_id == 67:
+        return "cobblestone_stairs"
+    elif block_id == 109:
+        return "stone_brick_stairs"
+    elif block_id == 124:
+        return "redstone_lamp"
+    elif block_id == 125:
+        return "double_oak_wood_slab"
+    elif block_id == 126:
+        return "spruce_wood_slab"
+    elif block_id == 128:
+        return "sandstone_stairs"
+    elif block_id == 134:
+        return "spruce_stairs"
+    elif block_id == 138:
+        return "beacon"
+    elif block_id == 155:
+        return "quartz_block"
+    elif block_id == 156:
+        return "quartz_stairs"
+
     block_name = block_names.get((block_id, data_value))
-    if block_name is None:
-        if block_id not in ignored_block_ids:
-            unknown_blocks_count[(block_id, data_value)] += 1  # Increment occurrence count
+    if block_name is None and block_id not in ignored_block_ids:
+        unknown_blocks_count[(block_id, data_value)] += 1
         return f"unknown ({block_id}:{data_value})"
     return block_name
 
