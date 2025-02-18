@@ -25224,7 +25224,7 @@ buildSchematic = function()
         moveTo(blockData)
 
         if not validBlocks[blockData.block] then
-            print("⏩ Skipping unrecognized block: " .. blockData.block)
+            print("⏩ Skipping unrecognized block ")
         else
             if not placeBlock(blockData.block) then
                 print("❌ Unable to place block at X:" .. blockData.x .. " Z:" .. blockData.z)
