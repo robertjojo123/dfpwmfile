@@ -33,7 +33,7 @@ def get_block_name(block_id):
     }
     return block_names.get(block_id, f"unknown ({block_id})")
 
-# Load schematic and process block data
+# Load schematic and process block data in 16x16 chunks
 def load_schematic(filename):
     if not os.path.isfile(filename):
         print(f"❌ File not found: {filename}")
@@ -48,37 +48,50 @@ def load_schematic(filename):
 
     print(f"✅ Schematic loaded in {time.time() - start_time:.2f} seconds.")
 
-    structured_blocks = []
-    for y in range(height):  # Ensure bottom-to-top order
-        for x in range(width):
-            for z in range(length):
-                i = y * width * length + z * width + x
-                block_id = int(blocks[i])
-                if block_id != 0:
-                    structured_blocks.append({
-                        'x': x,
-                        'y': y,
-                        'z': z,
-                        'block': get_block_name(block_id)
-                    })
+    structured_chunks = {}
 
-    print(f"✅ Processed {len(structured_blocks)} blocks.\n")
-    return structured_blocks, width, height, length
+    print("\n🔄 Processing blocks into 16x16 chunks...")
 
-# Convert block data to Lua format for Turtles
-def convert_to_lua(blocks, width, height, length):
+    for chunk_x in range(0, width, MINECRAFT_CHUNK_SIZE):
+        for chunk_z in range(0, length, MINECRAFT_CHUNK_SIZE):
+            chunk_key = (chunk_x, chunk_z)
+            structured_chunks[chunk_key] = []
+
+            for y in range(height):
+                for x in range(chunk_x, min(chunk_x + MINECRAFT_CHUNK_SIZE, width)):
+                    for z in range(chunk_z, min(chunk_z + MINECRAFT_CHUNK_SIZE, length)):
+                        i = y * width * length + z * width + x
+                        block_id = int(blocks[i])
+                        if block_id != 0:
+                            structured_chunks[chunk_key].append({
+                                'x': x,
+                                'y': y,
+                                'z': z,
+                                'block': get_block_name(block_id)
+                            })
+
+    print(f"✅ All blocks sorted into {len(structured_chunks)} chunks.\n")
+    return structured_chunks, width, height, length
+
+# Convert block data to Lua format
+def convert_to_lua(structured_chunks, width, height, length):
     print("📝 Converting to Lua format...")
     lua_files = []
     file_index = 1
+    chunk_list = list(structured_chunks.values())
 
-    while blocks:
-        chunk = blocks[:MAX_BLOCKS_PER_FILE]
-        blocks = blocks[MAX_BLOCKS_PER_FILE:]
+    while chunk_list:
+        chunk_set = []
+        block_count = 0
+
+        while chunk_list and block_count + len(chunk_list[0]) <= MAX_BLOCKS_PER_FILE:
+            chunk_set.extend(chunk_list.pop(0))
+            block_count += len(chunk_set)
 
         lua_table = f"local schematic = {{\n    width = {width},\n    height = {height},\n    length = {length},\n    blocks = {{\n"
         lua_table += ",\n".join(
             f"        {{x={b['x']}, y={b['y']}, z={b['z']}, block='{b['block']}'}}"
-            for b in chunk
+            for b in chunk_set
         )
         lua_table += "\n    }\n}\n\n"
 
@@ -109,10 +122,10 @@ def save_lua_files(lua_files):
 # Main function
 def main():
     schematic_file = input("Enter schematic file path: ").strip()
-    blocks, width, height, length = load_schematic(schematic_file)
+    structured_chunks, width, height, length = load_schematic(schematic_file)
 
-    if blocks:
-        lua_files = convert_to_lua(blocks, width, height, length)
+    if structured_chunks:
+        lua_files = convert_to_lua(structured_chunks, width, height, length)
         save_lua_files(lua_files)
     else:
         print("❌ No valid blocks found. Exiting.")
