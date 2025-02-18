@@ -111,24 +111,21 @@ def debug_check(structured_chunks):
 # Convert structured chunks to Lua table format
 def convert_to_lua(structured_chunks):
     lua_code = "local blocks = {\n"
-    block_count = 0  # Counter to track the number of converted blocks
+    block_count = 0  # Counter for total converted blocks
 
     for chunk, blocks in structured_chunks.items():
         for block in blocks:
-            # Ensure block data is properly formatted
             block_entry = f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = \"{block['block']}\"}},\n"
             lua_code += block_entry
             block_count += 1
 
-            # Debugging: Print the first few blocks being converted
-            if block_count <= 10:
-                print(f"🛠️ Converting block {block_count}: {block_entry.strip()}")
+            # Print progress every 10,000 blocks
+            if block_count % 10000 == 0:
+                print(f"🔄 Processing block {block_count}...")
 
-    lua_code += "}\nreturn blocks\n"  # Close the Lua table properly
-
+    lua_code += "}\nreturn blocks\n"  # Close Lua table
     print(f"✅ Total blocks converted: {block_count}")
     return lua_code
-
 
 # Save Lua file
 def save_lua_file(lua_code, output_filename="output.lua"):
