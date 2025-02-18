@@ -108,37 +108,58 @@ def debug_check(structured_chunks):
         break
 
 # Convert to Lua table format
+# Convert structured chunks to Lua table format
 def convert_to_lua(structured_chunks):
     lua_code = "local blocks = {\n"
+    block_count = 0  # Counter to track the number of converted blocks
 
     for chunk, blocks in structured_chunks.items():
         for block in blocks:
-            lua_code += f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = \"{block['block']}\"}},\n"
+            # Ensure block data is properly formatted
+            block_entry = f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = \"{block['block']}\"}},\n"
+            lua_code += block_entry
+            block_count += 1
 
-    lua_code += "}\nreturn blocks"
+            # Debugging: Print the first few blocks being converted
+            if block_count <= 10:
+                print(f"🛠️ Converting block {block_count}: {block_entry.strip()}")
 
+    lua_code += "}\nreturn blocks\n"  # Close the Lua table properly
+
+    print(f"✅ Total blocks converted: {block_count}")
     return lua_code
 
+
 # Save Lua file
-def save_lua_file(lua_code, output_filename):
-    with open(output_filename, "w") as lua_file:
-        lua_file.write(lua_code)
-    print(f"✅ Conversion completed. Lua file saved as {output_filename}")
+def save_lua_file(lua_code, output_filename="output.lua"):
+    try:
+        with open(output_filename, "w", encoding="utf-8") as lua_file:
+            lua_file.write(lua_code)
+        print(f"✅ Lua file successfully saved as: {output_filename}")
+    except Exception as e:
+        print(f"❌ Error saving Lua file: {e}")
+
 
 # Main function
 def main():
     schematic_file = input("Enter schematic file path: ").strip()
     structured_chunks, width, height, length = load_schematic(schematic_file)
 
-    if structured_chunks:
+    if structured_chunks and any(structured_chunks.values()):
         debug_check(structured_chunks)
-        print("\n✅ Block storage verified. Proceeding to conversion...")
+        print("\n✅ Block storage verified. Proceeding to conversion...\n")
 
+        # Ensure conversion is executed
         lua_code = convert_to_lua(structured_chunks)
-        save_lua_file(lua_code, "output.lua")
+
+        if lua_code:
+            save_lua_file(lua_code)
+        else:
+            print("❌ Lua conversion failed. No output generated.")
 
     else:
-        print("❌ No valid chunks found. Exiting.")
+        print("❌ No valid blocks found. Exiting.")
+
 
 if __name__ == "__main__":
     main()
