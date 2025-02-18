@@ -106,6 +106,7 @@ def load_schematic(filename):
                     block_count = 0
                     file_index += 1
 
+    # Ensure final output is written
     if output_data:
         with open(f"output_{file_index}.lua", "w") as f:
             f.write("return {\n" + ",\n".join(output_data) + "\n}")
