@@ -87,3 +87,84 @@ def get_block_name(block_id, data_value):
         unknown_blocks_count[(block_id, data_value)] += 1  # Increment occurrence count
         return f"unknown ({block_id}:{data_value})"
     return block_name
+
+# Load schematic and process block data
+def load_schematic(filename):
+    if not os.path.isfile(filename):
+        print(f"❌ File not found: {filename}")
+        return None, None, None, None
+
+    print("📂 Loading schematic file...")
+    start_time = time.time()
+
+    schematic_data = nbtlib.load(filename)
+    width, height, length = int(schematic_data['Width']), int(schematic_data['Height']), int(schematic_data['Length'])
+    blocks = np.array(schematic_data.get('Blocks', []), dtype=np.uint8)
+    data_values = np.array(schematic_data.get('Data', []), dtype=np.uint8)
+
+    print(f"✅ Schematic loaded in {time.time() - start_time:.2f} seconds.")
+
+    structured_chunks = {}
+    block_count = 0
+    file_index = 1
+    output_data = []
+
+    print("\n🔄 Processing blocks into 16x16 chunks...")
+
+    for chunk_x in range(0, width, MINECRAFT_CHUNK_SIZE):
+        for chunk_z in range(0, length, MINECRAFT_CHUNK_SIZE):
+            chunk_key = (chunk_x, chunk_z)
+            structured_chunks[chunk_key] = []
+
+            for y in range(height):
+                for x in range(chunk_x, min(chunk_x + MINECRAFT_CHUNK_SIZE, width)):
+                    for z in range(chunk_z, min(chunk_z + MINECRAFT_CHUNK_SIZE, length)):
+                        i = y * width * length + z * width + x
+                        block_id = int(blocks[i])
+                        data_value = int(data_values[i])
+                        if block_id != 0:
+                            formatted_entry = f"{{x={x}, y={y}, z={z}, {get_block_name(block_id, data_value)}}}"
+                            structured_chunks[chunk_key].append(formatted_entry)
+                            output_data.append(formatted_entry)
+                            block_count += 1
+
+                            # If max blocks per file reached, save and reset
+                            if block_count >= MAX_BLOCKS_PER_FILE:
+                                with open(f"output_{file_index}.lua", "w") as f:
+                                    f.write("return {\n" + ",\n".join(output_data) + "\n}")
+                                print(f"✅ Saved output_{file_index}.lua with {block_count} blocks")
+                                output_data = []
+                                block_count = 0
+                                file_index += 1
+
+    # Save remaining blocks
+    if output_data:
+        with open(f"output_{file_index}.lua", "w") as f:
+            f.write("return {\n" + ",\n".join(output_data) + "\n}")
+        print(f"✅ Saved final output_{file_index}.lua with {len(output_data)} blocks")
+
+    print(f"✅ All blocks sorted into {len(structured_chunks)} chunks.\n")
+    return structured_chunks, width, height, length
+
+# Debug and Error Reporting
+def print_unknown_blocks():
+    if unknown_blocks_count:
+        print("\n⚠️  **Unknown Blocks Encountered** ⚠️")
+        for (block_id, data_value), count in sorted(unknown_blocks_count.items()):
+            print(f"  - Unknown Block (ID: {block_id}, Data: {data_value}) occurred {count} times")
+    else:
+        print("\n✅ No unknown blocks found!")
+
+# Main function
+def main():
+    schematic_file = input("Enter schematic file path: ").strip()
+    structured_chunks, width, height, length = load_schematic(schematic_file)
+
+    if structured_chunks:
+        print("\n✅ Block storage verified. Proceeding to conversion...")
+        print_unknown_blocks()
+    else:
+        print("❌ No valid chunks found. Exiting.")
+
+if __name__ == "__main__":
+    main()
