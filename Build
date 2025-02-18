@@ -1,0 +1,237 @@
+-- Load the schematic
+local blocks = require("schematic") -- Ensure the schematic file returns the block list in the correct format
+
+-- Position Tracking
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0}
+
+-- Fuel Chest Location
+local fuelChest = {x = -1, y = 0, z = -5}
+
+-- Valid Blocks (Only these materials will be placed)
+local validBlocks = {
+    ["minecraft:clay"] = true,
+    ["minecraft:dirt"] = true,
+    ["minecraft:grass_block"] = true,
+    ["minecraft:stone"] = true,
+    ["minecraft:white_wool"] = true
+}
+
+-- Material Chest Locations (All at x = -1, sequentially decreasing in z)
+local materialChests = {
+    ["minecraft:clay"] = {x = -1, y = 0, z = 0},
+    ["minecraft:dirt"] = {x = -1, y = 0, z = -1},
+    ["minecraft:grass_block"] = {x = -1, y = 0, z = -2},
+    ["minecraft:stone"] = {x = -1, y = 0, z = -3},
+    ["minecraft:white_wool"] = {x = -1, y = 0, z = -4}
+}
+
+-- Determine the maximum X and Z for chunkloading recommendation
+local maxX, maxZ = 0, 0
+for _, blockData in ipairs(blocks) do
+    if blockData.x > maxX then maxX = blockData.x end
+    if blockData.z > maxZ then maxZ = blockData.z end
+end
+
+-- Print chunkloader suggestion
+print("📌 Add chunkloaders extending X: " .. maxX .. " Z: " .. maxZ)
+
+-- Function Definitions
+local turnLeft, turnRight, savePosition, returnToLastPosition
+local tryMove, moveForward, moveTo, restock, placeBlock, buildSchematic
+
+turnLeft = function()
+    turtle.turnLeft()
+    pos.dir = (pos.dir - 1) % 4
+end
+
+turnRight = function()
+    turtle.turnRight()
+    pos.dir = (pos.dir + 1) % 4
+end
+
+savePosition = function()
+    lastPos.x = pos.x
+    lastPos.y = pos.y
+    lastPos.z = pos.z
+    lastPos.dir = pos.dir
+end
+
+returnToLastPosition = function()
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turnRight() end
+end
+
+tryMove = function(moveFunc, detectFunc)
+    local attempts = 0
+    while not moveFunc() do
+        if detectFunc() then
+            print("❌ Obstacle detected! Trying to navigate around.")
+            if turtle.up() then
+                print("⬆️ Moving over obstacle")
+                if moveFunc() then
+                    turtle.down()
+                end
+            else
+                if attempts % 2 == 0 then
+                    turnRight()
+                else
+                    turnLeft()
+                end
+                attempts = attempts + 1
+                if attempts > 4 then
+                    print("❌ Completely stuck! Cannot navigate past obstacle.")
+                    return false
+                end
+            end
+        else
+            return false
+        end
+    end
+    return true
+end
+
+moveForward = function()
+    if tryMove(turtle.forward, turtle.detect) then
+        if pos.dir == 0 then pos.z = pos.z + 1
+        elseif pos.dir == 1 then pos.x = pos.x + 1
+        elseif pos.dir == 2 then pos.z = pos.z - 1
+        elseif pos.dir == 3 then pos.x = pos.x - 1
+        end
+    end
+end
+
+moveTo = function(target)
+    while pos.x ~= target.x do
+        if pos.x < target.x then
+            while pos.dir ~= 1 do turnRight() end
+        else
+            while pos.dir ~= 3 do turnRight() end
+        end
+        moveForward()
+    end
+    
+    while pos.z ~= target.z do
+        if pos.z < target.z then
+            while pos.dir ~= 0 do turnRight() end
+        else
+            while pos.dir ~= 2 do turnRight() end
+        end
+        moveForward()
+    end
+end
+
+restock = function(block)
+    if not validBlocks[block] then
+        print("⏩ Skipping unrecognized block: " .. block)
+        return false
+    end
+
+    print("🛠️ Restocking: " .. block)
+    local chestPos = materialChests[block]
+    if not chestPos then
+        print("❌ No chest assigned for: " .. block)
+        return false
+    end
+
+    savePosition()
+    moveTo(chestPos)
+    while pos.dir ~= 3 do turnLeft() end -- Face the chest
+
+    local success = false
+    for chestSlot = 1, 16 do
+        turtle.select(chestSlot)
+        if not turtle.getItemDetail() then
+            for i = 1, 27 do
+                if turtle.suck(64) then
+                    local suckedItem = turtle.getItemDetail()
+                    if suckedItem and suckedItem.name == block then
+                        print("✅ Restocked " .. block)
+                        success = true
+                        break
+                    else
+                        turtle.drop()
+                    end
+                end
+            end
+        end
+        if success then break end
+    end
+    
+    if not success then
+        print("❌ Out of stock in chest for: " .. block)
+    end
+
+    returnToLastPosition()
+    return success
+end
+
+placeBlock = function(block)
+    -- **Check Fuel Before Placing**
+    if turtle.getFuelLevel() < 1000 then
+        print("⛽ Low fuel! Moving to fuel chest.")
+        savePosition()
+        moveTo(fuelChest)
+
+        while pos.dir ~= 3 do turnLeft() end -- Face the chest
+
+        for i = 1, 3 do
+            if turtle.suck(1) then
+                turtle.refuel()
+            else
+                print("❌ Fuel chest is empty! Build halted.")
+                return false
+            end
+        end
+
+        print("✅ Refueled successfully!")
+        returnToLastPosition()
+    end
+
+    -- **Check if Block Should Be Placed**
+    if not validBlocks[block] then
+        print("⏩ Skipping unrecognized block: " .. block)
+        return true
+    end
+
+    if turtle.detectDown() then
+        print("⏩ Block already placed, skipping: " .. block)
+        return true
+    end
+
+    -- **Try to Place Block**
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == block then
+            turtle.select(i)
+            if turtle.placeDown() then
+                return true
+            end
+        end
+    end
+    
+    if restock(block) then
+        return placeBlock(block)
+    else
+        print("❌ Build halted: Out of " .. block)
+        return false
+    end
+end
+
+buildSchematic = function()
+    for _, blockData in ipairs(blocks) do
+        moveTo(blockData)
+
+        if not validBlocks[blockData.block] then
+            print("⏩ Skipping unrecognized block: " .. blockData.block)
+        else
+            if not placeBlock(blockData.block) then
+                print("❌ Unable to place block at X:" .. blockData.x .. " Z:" .. blockData.z)
+                return
+            end
+        end
+    end
+    print("✅ Schematic completed.")
+end
+
+buildSchematic()
