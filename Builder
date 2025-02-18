@@ -1,3 +1,6 @@
+-- Load the schematic
+local blocks = require("schematic") -- Ensure the schematic file returns the block list in the correct format
+
 -- Position Tracking
 local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
 local lastPos = {x = 0, y = 0, z = 0, dir = 0}
@@ -23,20 +26,11 @@ local materialChests = {
     ["minecraft:white_wool"] = {x = -1, y = 0, z = -4}
 }
 
--- Schematic Data (Example)
-local blocks = {
-    { 0, 0, 0, "minecraft:white_wool" },
-    { 0, 0, 1, "minecraft:white_wool" },
-    { 1, 0, 0, "minecraft:white_wool" },
-    { 2, 0, 0, "minecraft:stone" },
-    { 3, 0, 0, "minecraft:dirt" }
-}
-
 -- Determine the maximum X and Z for chunkloading recommendation
 local maxX, maxZ = 0, 0
 for _, blockData in ipairs(blocks) do
-    if blockData[1] > maxX then maxX = blockData[1] end
-    if blockData[3] > maxZ then maxZ = blockData[3] end
+    if blockData.x > maxX then maxX = blockData.x end
+    if blockData.z > maxZ then maxZ = blockData.z end
 end
 
 -- Print chunkloader suggestion
@@ -108,8 +102,8 @@ moveForward = function()
 end
 
 moveTo = function(target)
-    while pos.x ~= target[1] do
-        if pos.x < target[1] then
+    while pos.x ~= target.x do
+        if pos.x < target.x then
             while pos.dir ~= 1 do turnRight() end
         else
             while pos.dir ~= 3 do turnRight() end
@@ -117,8 +111,8 @@ moveTo = function(target)
         moveForward()
     end
     
-    while pos.z ~= target[3] do
-        if pos.z < target[3] then
+    while pos.z ~= target.z do
+        if pos.z < target.z then
             while pos.dir ~= 0 do turnRight() end
         else
             while pos.dir ~= 2 do turnRight() end
@@ -226,16 +220,13 @@ end
 
 buildSchematic = function()
     for _, blockData in ipairs(blocks) do
-        local target = {blockData[1], blockData[2], blockData[3]}
-        local blockType = blockData[4]
+        moveTo(blockData)
 
-        moveTo(target)
-
-        if not validBlocks[blockType] then
-            print("⏩ Skipping unrecognized block: " .. blockType)
+        if not validBlocks[blockData.block] then
+            print("⏩ Skipping unrecognized block: " .. blockData.block)
         else
-            if not placeBlock(blockType) then
-                print("❌ Unable to place block at " .. table.concat(target, ", "))
+            if not placeBlock(blockData.block) then
+                print("❌ Unable to place block at X:" .. blockData.x .. " Z:" .. blockData.z)
                 return
             end
         end
