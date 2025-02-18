@@ -1,0 +1,144 @@
+import nbtlib 
+import os
+import numpy as np
+import time
+
+MINECRAFT_CHUNK_SIZE = 16  # 16x16 chunk size
+MAX_BLOCKS_PER_FILE = 25000  # Max blocks per Lua file
+
+# Block ID and Data Mapping (Expanded)
+block_map = {
+    # Basic Blocks
+    (1, 0): "stone", (1, 1): "granite", (98, 2): "cracked_stone_bricks",
+    (98, 3): "chiseled_stone_bricks", (2, 0): "grass_block", (3, 0): "dirt",
+    (4, 0): "cobblestone", (5, 0): "oak_wood_planks", (5, 1): "spruce_wood_planks",
+    (5, 2): "birch_wood_planks", (5, 3): "jungle_wood_planks", (5, 4): "acacia_wood_planks",
+    (5, 5): "dark_oak_wood_planks", (12, 0): "sand", (12, 1): "red_sand", (13, 0): "gravel",
+    
+    # Decorative Blocks
+    (45, 0): "bricks", (44, 4): "brick_slab", (155, 0): "block_of_quartz",
+    (155, 1): "chiseled_quartz_block", (155, 2): "pillar_quartz_block",
+    (24, 1): "chiseled_sandstone", (24, 2): "smooth_sandstone",
+    (98, 1): "mossy_stone_bricks", (87, 0): "netherrack", (48, 0): "moss_stone",
+    (89, 0): "glowstone", (169, 0): "sea_lantern", (123, 0): "redstone_lamp",
+    (41, 0): "block_of_gold", (152, 0): "block_of_redstone", (174, 0): "packed_ice",
+
+    # Stairs
+    (53, 0): "oak_stairs", (134, 0): "spruce_stairs", (135, 0): "birch_stairs",
+    (136, 0): "jungle_stairs", (163, 0): "acacia_stairs", (164, 0): "dark_oak_stairs",
+    (67, 0): "cobblestone_stairs", (108, 0): "brick_stairs", (109, 0): "stone_brick_stairs",
+    (114, 0): "nether_brick_stairs", (128, 0): "sandstone_stairs", (180, 0): "red_sandstone_stairs",
+    (156, 0): "quartz_stairs", (203, 0): "purpur_stairs",
+
+    # Slabs
+    (44, 0): "stone_slab", (44, 4): "brick_slab", (44, 5): "stone_brick_slab",
+    (44, 1): "sandstone_slab", (44, 6): "nether_brick_slab", (44, 7): "quartz_slab",
+    
+    # Plants and Flowers
+    (31, 1): "grass", (31, 2): "fern", (37, 0): "dandelion", (38, 0): "poppy",
+    (38, 1): "blue_orchid", (38, 2): "allium", (38, 3): "azure_bluet", (38, 4): "red_tulip",
+    (38, 5): "orange_tulip", (38, 6): "white_tulip", (38, 7): "pink_tulip", (38, 8): "oxeye_daisy",
+    (175, 0): "sunflower", (175, 1): "lilac", (175, 2): "double_tallgrass", (175, 3): "large_fern",
+    (175, 4): "rose_bush", (175, 5): "peony", (106, 0): "vines", (111, 0): "lily_pad",
+
+    # Functional Blocks
+    (138, 0): "beacon", (69, 0): "lever", (85, 0): "oak_fence", 
+    (18, 0): "oak_leaves", (18, 3): "jungle_leaves", (17, 0): "oak_wood",
+
+    # Wool and Colors
+    (35, 0): "white_wool", (35, 8): "light_gray_wool", (35, 15): "black_wool",
+    
+    # Water and Snow
+    (0, 0): "air", (326, 0): "water_bucket", (78, 0): "snow_layer", (80, 0): "snow_block"
+}
+
+# Function to get block name from ID and data value
+def get_block_name(block_id, data_value):
+    return block_map.get((block_id, data_value), f"unknown ({block_id}:{data_value})")
+
+# Load schematic and process block data
+def load_schematic(filename):
+    if not os.path.isfile(filename):
+        print(f"❌ File not found: {filename}")
+        return None, None, None, None
+
+    print("📂 Loading schematic file...")
+    start_time = time.time()
+
+    schematic_data = nbtlib.load(filename)
+    width, height, length = int(schematic_data['Width']), int(schematic_data['Height']), int(schematic_data['Length'])
+    blocks = np.array(schematic_data.get('Blocks', []), dtype=np.uint8)
+    data_values = np.array(schematic_data.get('Data', []), dtype=np.uint8)
+
+    print(f"✅ Schematic loaded in {time.time() - start_time:.2f} seconds.")
+
+    structured_chunks = {}
+
+    print("\n🔄 Processing blocks into 16x16 chunks...")
+    
+    # Process blocks chunk by chunk
+    for chunk_x in range(0, width, MINECRAFT_CHUNK_SIZE):
+        for chunk_z in range(0, length, MINECRAFT_CHUNK_SIZE):
+            chunk_key = (chunk_x, chunk_z)
+            structured_chunks[chunk_key] = []
+
+            for y in range(height):
+                for x in range(chunk_x, min(chunk_x + MINECRAFT_CHUNK_SIZE, width)):
+                    for z in range(chunk_z, min(chunk_z + MINECRAFT_CHUNK_SIZE, length)):
+                        i = y * width * length + z * width + x
+                        block_id = int(blocks[i])
+                        data_value = int(data_values[i])
+                        if block_id != 0:
+                            structured_chunks[chunk_key].append({
+                                'x': x,
+                                'y': y,
+                                'z': z,
+                                'block': get_block_name(block_id, data_value)
+                            })
+
+    print(f"✅ All blocks sorted into {len(structured_chunks)} chunks.\n")
+    return structured_chunks, width, height, length
+
+# Debug: Print first few blocks for verification
+def debug_check(structured_chunks):
+    print("\n🔍 Debug Check: First few stored blocks")
+    for chunk, blocks in structured_chunks.items():
+        for block in blocks[:5]:
+            print(block)
+        break
+
+# Convert to Lua table format
+def convert_to_lua(structured_chunks):
+    lua_code = "local blocks = {\n"
+
+    for chunk, blocks in structured_chunks.items():
+        for block in blocks:
+            lua_code += f"    {{x = {block['x']}, y = {block['y']}, z = {block['z']}, block = \"{block['block']}\"}},\n"
+
+    lua_code += "}\nreturn blocks"
+
+    return lua_code
+
+# Save Lua file
+def save_lua_file(lua_code, output_filename):
+    with open(output_filename, "w") as lua_file:
+        lua_file.write(lua_code)
+    print(f"✅ Conversion completed. Lua file saved as {output_filename}")
+
+# Main function
+def main():
+    schematic_file = input("Enter schematic file path: ").strip()
+    structured_chunks, width, height, length = load_schematic(schematic_file)
+
+    if structured_chunks:
+        debug_check(structured_chunks)
+        print("\n✅ Block storage verified. Proceeding to conversion...")
+
+        lua_code = convert_to_lua(structured_chunks)
+        save_lua_file(lua_code, "output.lua")
+
+    else:
+        print("❌ No valid chunks found. Exiting.")
+
+if __name__ == "__main__":
+    main()
