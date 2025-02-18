@@ -5,8 +5,7 @@ import time
 from collections import defaultdict
 
 MINECRAFT_CHUNK_SIZE = 16  # 16x16 chunk size
-MAX_BLOCKS_PER_FILE = 25000  # Max blocks per Lua file
-# Dictionary to track unknown blocks
+MAX_BLOCKS_PER_FILE = 30000  # Max blocks per Lua file
 unknown_blocks_count = defaultdict(int)
 
 # Function to map block IDs and data values to names
@@ -20,20 +19,6 @@ def get_block_name(block_id, data_value):
         (4, 0): "'cobblestone'", (12, 0): "'sand'", (12, 1): "'red_sand'", (13, 0): "'gravel'",
         (45, 0): "'bricks'", (48, 0): "'moss_stone'", (89, 0): "'glowstone'",
         (87, 0): "'netherrack'",
-
-        # Packed Ice
-        (174, 0): "'packed_ice'",
-
-        # Clay Block
-        (82, 0): "'clay_block'",
-
-        # Sandstone Variants
-        (24, 0): "'sandstone'", (24, 1): "'chiseled_sandstone'", (24, 2): "'smooth_sandstone'",
-        (44, 1): "'sandstone_slab'",
-        (179, 0): "'red_sandstone'", (179, 1): "'chiseled_red_sandstone'", (179, 2): "'smooth_red_sandstone'",
-        (182, 0): "'red_sandstone_slab'",
-
-        # Extra Blocks
         (41, 0): "'gold_block'",
         (85, 0): "'oak_fence'",
         (139, 0): "'cobblestone_wall'",
@@ -42,7 +27,7 @@ def get_block_name(block_id, data_value):
 
     ignored_block_ids = {9, 31, 37, 38, 51, 69, 78, 80, 106, 111, 175}
 
-    # Keeping all previous elif statements and adding the new fixes!
+    # Keeping all previous elif statements and adding new fixes
     if block_id == 5:
         return "'oak_planks'"
     elif block_id == 17:
@@ -77,6 +62,8 @@ def get_block_name(block_id, data_value):
         return "'stone_brick_slab'"
     elif block_id == 44 and data_value == 7:
         return "'quartz_slab'"
+    elif block_id == 44 and data_value >= 8:
+        return get_block_name(44, data_value - 7)  # Fix slabs automatically
     elif block_id == 67:
         return "'cobblestone_stairs'"
     elif block_id == 98 and data_value == 0:
@@ -133,34 +120,40 @@ def load_schematic(filename):
     file_index = 1
     output_data = []
 
-    for y in range(height):
-        for x in range(width):
-            for z in range(length):
-                i = y * width * length + z * width + x
-                block_id = int(blocks[i])
-                data_value = int(data_values[i])
-                if block_id != 0:
-                    formatted_entry = f"{{x={x}, y={y}, z={z}, {get_block_name(block_id, data_value)}}}"
-                    output_data.append(formatted_entry)
+    for chunk_x in range(0, width, MINECRAFT_CHUNK_SIZE):
+        for chunk_z in range(0, length, MINECRAFT_CHUNK_SIZE):
+            chunk_key = (chunk_x, chunk_z)
+            structured_chunks[chunk_key] = []
 
-    with open("output.lua", "w") as f:
-        f.write("return {\n" + ",\n".join(output_data) + "\n}")
-    print(f"✅ Saved output.lua with {len(output_data)} blocks")
+            for y in range(height):
+                for x in range(chunk_x, min(chunk_x + MINECRAFT_CHUNK_SIZE, width)):
+                    for z in range(chunk_z, min(chunk_z + MINECRAFT_CHUNK_SIZE, length)):
+                        i = y * width * length + z * width + x
+                        block_id = int(blocks[i])
+                        data_value = int(data_values[i])
+                        if block_id != 0:
+                            formatted_entry = f"{{x={x}, y={y}, z={z}, {get_block_name(block_id, data_value)}}}"
+                            structured_chunks[chunk_key].append(formatted_entry)
+                            output_data.append(formatted_entry)
+                            block_count += 1
 
-# Debug and Error Reporting
-def print_unknown_blocks():
-    if unknown_blocks_count:
-        print("\n⚠️  **Unknown Blocks Encountered** ⚠️")
-        for (block_id, data_value), count in sorted(unknown_blocks_count.items()):
-            print(f"  - Unknown Block (ID: {block_id}, Data: {data_value}) occurred {count} times")
-    else:
-        print("\n✅ No unknown blocks found!")
+                            if block_count >= MAX_BLOCKS_PER_FILE:
+                                with open(f"output_{file_index}.lua", "w") as f:
+                                    f.write("return {\n" + ",\n".join(output_data) + "\n}")
+                                print(f"✅ Saved output_{file_index}.lua with {block_count} blocks")
+                                output_data = []
+                                block_count = 0
+                                file_index += 1
+
+    if output_data:
+        with open(f"output_{file_index}.lua", "w") as f:
+            f.write("return {\n" + ",\n".join(output_data) + "\n}")
+        print(f"✅ Saved final output_{file_index}.lua with {len(output_data)} blocks")
 
 # Main function
 def main():
     schematic_file = input("Enter schematic file path: ").strip()
     load_schematic(schematic_file)
-    print_unknown_blocks()
 
 if __name__ == "__main__":
     main()
