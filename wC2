@@ -1,3 +1,15 @@
+import nbtlib 
+import os
+import numpy as np
+import time
+from collections import defaultdict
+
+MINECRAFT_CHUNK_SIZE = 16  # 16x16 chunk size
+MAX_BLOCKS_PER_FILE = 25000  # Max blocks per Lua file
+unknown_blocks_count = defaultdict(int)  # Dictionary to count unknown block occurrences
+
+# Function to map block IDs and data values to names
+
 # Function to map block IDs and data values to names
 def get_block_name(block_id, data_value):
     block_names = {
