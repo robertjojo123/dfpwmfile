@@ -42,15 +42,51 @@ def get_block_name(block_id, data_value):
 
     ignored_block_ids = {9, 31, 37, 38, 51, 69, 78, 80, 106, 111, 175}
 
-    # Keeping all the elif statements as they were!
-    if block_id == 17:
+    # Keeping all previous elif statements and adding the new fixes!
+    if block_id == 5:
+        return "'oak_planks'"
+    elif block_id == 17:
         return "'oak_wood'"
     elif block_id == 18:
         return "'oak_leaves'"
-    elif block_id == 44 and data_value >= 8:
-        return block_names.get((44, data_value - 7), f"'unknown ({block_id}:{data_value})'")
+    elif block_id == 35 and data_value == 0:
+        return "'white_wool'"
+    elif block_id == 35 and data_value == 8:
+        return "'light_gray_wool'"
+    elif block_id == 35 and data_value == 15:
+        return "'black_wool'"
+    elif block_id == 43 and data_value == 0:
+        return "'stone_double_slab'"
+    elif block_id == 43 and data_value == 1:
+        return "'double_sandstone_slab'"
+    elif block_id == 43 and data_value == 4:
+        return "'double_brick_slab'"
+    elif block_id == 43 and data_value == 5:
+        return "'double_stone_brick_slab'"
+    elif block_id == 43 and data_value == 7:
+        return "'double_quartz_slab'"
+    elif block_id == 43 and data_value == 8:
+        return "'double_smooth_stone_slab'"
+    elif block_id == 43 and data_value == 9:
+        return "'smooth_sandstone_double_slab'"
+    elif block_id == 44 and data_value == 0:
+        return "'stone_slab'"
+    elif block_id == 44 and data_value == 4:
+        return "'brick_slab'"
+    elif block_id == 44 and data_value == 5:
+        return "'stone_brick_slab'"
+    elif block_id == 44 and data_value == 7:
+        return "'quartz_slab'"
     elif block_id == 67:
         return "'cobblestone_stairs'"
+    elif block_id == 98 and data_value == 0:
+        return "'stone_bricks'"
+    elif block_id == 98 and data_value == 1:
+        return "'mossy_stone_bricks'"
+    elif block_id == 98 and data_value == 2:
+        return "'cracked_stone_bricks'"
+    elif block_id == 98 and data_value == 3:
+        return "'chiseled_stone_bricks'"
     elif block_id == 109:
         return "'stone_brick_stairs'"
     elif block_id == 124:
