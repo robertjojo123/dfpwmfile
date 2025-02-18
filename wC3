@@ -102,7 +102,7 @@ def load_schematic(filename):
                     with open(f"output_{file_index}.lua", "w") as f:
                         f.write("return {\n" + ",\n".join(output_data) + "\n}")
                     print(f"✅ Saved output_{file_index}.lua with {block_count} blocks")
-                    output_data = []
+                    output_data.clear()
                     block_count = 0
                     file_index += 1
 
