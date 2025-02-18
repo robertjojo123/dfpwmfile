@@ -33,63 +33,6 @@ def get_block_name(block_id, data_value):
         (179, 0): "'red_sandstone'", (179, 1): "'chiseled_red_sandstone'", (179, 2): "'smooth_red_sandstone'",
         (182, 0): "'red_sandstone_slab'",
 
-        # Sandstone Stairs Variants
-        (128, 0): "'sandstone_stairs'", (180, 0): "'red_sandstone_stairs'",
-
-        # Wood Planks
-        (5, 0): "'oak_planks'", (5, 1): "'spruce_planks'", (5, 2): "'birch_planks'",
-        (5, 3): "'jungle_planks'", (5, 4): "'acacia_planks'", (5, 5): "'dark_oak_planks'",
-
-        # Wood Logs
-        (17, 0): "'oak_wood'", (17, 1): "'oak_wood'", (17, 2): "'oak_wood'", (17, 3): "'oak_wood'",
-
-        # Leaves
-        (18, 0): "'oak_leaves'", (18, 1): "'oak_leaves'", (18, 2): "'oak_leaves'", (18, 3): "'oak_leaves'",
-
-        # Wool Colors
-        (35, 0): "'white_wool'", (35, 1): "'orange_wool'", (35, 2): "'magenta_wool'",
-        (35, 3): "'light_blue_wool'", (35, 4): "'yellow_wool'", (35, 5): "'lime_wool'",
-        (35, 6): "'pink_wool'", (35, 7): "'gray_wool'", (35, 8): "'light_gray_wool'",
-        (35, 9): "'cyan_wool'", (35, 10): "'purple_wool'", (35, 11): "'blue_wool'",
-        (35, 12): "'brown_wool'", (35, 13): "'green_wool'", (35, 14): "'red_wool'", (35, 15): "'black_wool'",
-
-        # Stone Bricks
-        (98, 0): "'stone_bricks'", (98, 1): "'mossy_stone_bricks'",
-        (98, 2): "'cracked_stone_bricks'", (98, 3): "'chiseled_stone_bricks'",
-
-        # Quartz Blocks and Variants
-        (155, 0): "'quartz_block'", (155, 1): "'chiseled_quartz_block'",
-        (155, 2): "'pillar_quartz_block'", (155, 3): "'smooth_quartz_block'",
-        (44, 7): "'quartz_slab'", (43, 7): "'double_quartz_slab'",
-        (156, 0): "'quartz_stairs'",
-
-        # Single Slabs
-        (44, 0): "'stone_slab'", (44, 3): "'cobblestone_slab'",
-        (44, 4): "'brick_slab'", (44, 5): "'stone_brick_slab'", (44, 6): "'nether_brick_slab'",
-
-        # Double Slabs
-        (43, 0): "'stone_double_slab'", (43, 1): "'sandstone_double_slab'",
-        (43, 3): "'cobblestone_double_slab'", (43, 4): "'brick_double_slab'",
-        (43, 5): "'stone_brick_double_slab'", (43, 6): "'nether_brick_double_slab'",
-        (181, 0): "'red_sandstone_double_slab'",
-
-        # Wooden Stairs Variants
-        (53, 0): "'oak_stairs'", (134, 0): "'spruce_stairs'", (135, 0): "'birch_stairs'",
-        (136, 0): "'jungle_stairs'", (163, 0): "'acacia_stairs'", (164, 0): "'dark_oak_stairs'",
-
-        # Stone Brick Stairs Variants
-        (109, 0): "'stone_brick_stairs'",
-
-        # Other Stairs
-        (67, 0): "'cobblestone_stairs'", (108, 0): "'brick_stairs'",
-        (114, 0): "'nether_brick_stairs'",
-
-        # Fixed Unknowns
-        (124, 0): "'redstone_lamp'",
-        (125, 0): "'double_oak_wood_slab'",
-        (126, 0): "'spruce_wood_slab'",
-        (138, 0): "'beacon'",
-
         # Extra Blocks
         (41, 0): "'gold_block'",
         (85, 0): "'oak_fence'",
@@ -99,6 +42,7 @@ def get_block_name(block_id, data_value):
 
     ignored_block_ids = {9, 31, 37, 38, 51, 69, 78, 80, 106, 111, 175}
 
+    # Keeping all the elif statements as they were!
     if block_id == 17:
         return "'oak_wood'"
     elif block_id == 18:
@@ -131,3 +75,56 @@ def get_block_name(block_id, data_value):
         unknown_blocks_count[(block_id, data_value)] += 1
         return f"'unknown ({block_id}:{data_value})'"
     return block_name
+
+# Load schematic and process block data
+def load_schematic(filename):
+    if not os.path.isfile(filename):
+        print(f"❌ File not found: {filename}")
+        return None, None, None, None
+
+    print("📂 Loading schematic file...")
+    start_time = time.time()
+
+    schematic_data = nbtlib.load(filename)
+    width, height, length = int(schematic_data['Width']), int(schematic_data['Height']), int(schematic_data['Length'])
+    blocks = np.array(schematic_data.get('Blocks', []), dtype=np.uint8)
+    data_values = np.array(schematic_data.get('Data', []), dtype=np.uint8)
+
+    print(f"✅ Schematic loaded in {time.time() - start_time:.2f} seconds.")
+
+    structured_chunks = {}
+    block_count = 0
+    file_index = 1
+    output_data = []
+
+    for y in range(height):
+        for x in range(width):
+            for z in range(length):
+                i = y * width * length + z * width + x
+                block_id = int(blocks[i])
+                data_value = int(data_values[i])
+                if block_id != 0:
+                    formatted_entry = f"{{x={x}, y={y}, z={z}, {get_block_name(block_id, data_value)}}}"
+                    output_data.append(formatted_entry)
+
+    with open("output.lua", "w") as f:
+        f.write("return {\n" + ",\n".join(output_data) + "\n}")
+    print(f"✅ Saved output.lua with {len(output_data)} blocks")
+
+# Debug and Error Reporting
+def print_unknown_blocks():
+    if unknown_blocks_count:
+        print("\n⚠️  **Unknown Blocks Encountered** ⚠️")
+        for (block_id, data_value), count in sorted(unknown_blocks_count.items()):
+            print(f"  - Unknown Block (ID: {block_id}, Data: {data_value}) occurred {count} times")
+    else:
+        print("\n✅ No unknown blocks found!")
+
+# Main function
+def main():
+    schematic_file = input("Enter schematic file path: ").strip()
+    load_schematic(schematic_file)
+    print_unknown_blocks()
+
+if __name__ == "__main__":
+    main()
