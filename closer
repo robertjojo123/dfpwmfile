@@ -1,0 +1,172 @@
+-- ✅ **Function Forward Declarations**
+local moveTo, savePosition, returnToLastPosition, restock, placeBlock, buildSchematic
+
+-- ✅ **Position Tracking**
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0} -- Last saved position before leaving for restock
+
+-- ✅ **Material Chest Locations**
+local materialChests = {
+    ["minecraft:wool"] = {x = -1, y = 0, z = -4, dir = 3}, -- Auto-fixes white_wool to minecraft:wool
+    ["minecraft:clay"] = {x = -1, y = 0, z = 0, dir = 3},
+    ["minecraft:dirt"] = {x = -1, y = 0, z = -1, dir = 3},
+    ["minecraft:grass_block"] = {x = -1, y = 0, z = -2, dir = 3},
+    ["minecraft:stone"] = {x = -1, y = 0, z = -3, dir = 3}
+}
+
+-- ✅ **Block Data for Schematic**
+local blocks = {
+    {x=0, y=0, z=0, 'white_wool'}, -- Code will auto-convert this to minecraft:wool
+    {x=1, y=0, z=0, 'clay'},
+    {x=2, y=0, z=0, 'dirt'},
+    {x=3, y=0, z=0, 'grass_block'},
+    {x=4, y=0, z=0, 'stone'},
+    {x=5, y=0, z=0, 'white_wool'}, -- Auto-converted to minecraft:wool
+    {x=6, y=0, z=0, 'clay'},
+    {x=7, y=0, z=0, 'dirt'}
+}
+
+-- ✅ **Fix White Wool Issue (Auto-Corrects Block Names)**
+local function fixBlockName(block)
+    if block == "white_wool" then
+        return "minecraft:wool"
+    else
+        return "minecraft:" .. block
+    end
+end
+
+-- ✅ **Movement Functions**
+local function turnLeft()
+    turtle.turnLeft()
+    pos.dir = (pos.dir - 1) % 4
+end
+
+local function turnRight()
+    turtle.turnRight()
+    pos.dir = (pos.dir + 1) % 4
+end
+
+local function moveForward()
+    if turtle.forward() then
+        if pos.dir == 0 then pos.z = pos.z + 1
+        elseif pos.dir == 1 then pos.x = pos.x + 1
+        elseif pos.dir == 2 then pos.z = pos.z - 1
+        elseif pos.dir == 3 then pos.x = pos.x - 1
+        end
+        return true
+    end
+    return false
+end
+
+moveTo = function(target)
+    while pos.x ~= target.x do
+        if pos.x < target.x then while pos.dir ~= 1 do turnRight() end
+        else while pos.dir ~= 3 do turnRight() end
+        end
+        moveForward()
+    end
+    while pos.z ~= target.z do
+        if pos.z < target.z then while pos.dir ~= 0 do turnRight() end
+        else while pos.dir ~= 2 do turnRight() end
+        end
+        moveForward()
+    end
+end
+
+-- ✅ **Save and Return to Position**
+savePosition = function()
+    lastPos = {x = pos.x, y = pos.y, z = pos.z, dir = pos.dir}
+end
+
+returnToLastPosition = function()
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turnRight() end
+end
+
+-- ✅ **Restock Function (Fixes White Wool Automatically)**
+restock = function(block)
+    local blockID = fixBlockName(block) -- Convert "white_wool" to "minecraft:wool"
+    local chestPos = materialChests[blockID]
+
+    if not chestPos then
+        print("❌ ERROR: No chest found for " .. blockID)
+        return false
+    end
+
+    print("🔄 Moving to Restock " .. blockID .. " at Chest: X=" .. chestPos.x .. " Z=" .. chestPos.z)
+    
+    savePosition()
+    moveTo(chestPos)
+    while pos.dir ~= chestPos.dir do turnLeft() end
+
+    local success = false
+
+    for _ = 1, 27 do -- Try pulling from chest multiple times
+        if turtle.suck(64) then
+            for i = 1, 16 do -- Check all slots to see where the item landed
+                local item = turtle.getItemDetail(i)
+                if item and item.name == blockID then
+                    print("✅ Successfully Restocked: " .. blockID)
+                    success = true
+                    break
+                end
+            end
+        end
+        if success then break end
+    end
+
+    if not success then
+        print("❌ Out of stock: " .. blockID)
+    end
+
+    returnToLastPosition()
+    return success
+end
+
+-- ✅ **Block Placement Function (Uses Fixed Block Names)**
+placeBlock = function(block)
+    local blockID = fixBlockName(block) -- Convert "white_wool" to "minecraft:wool"
+
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == blockID then
+            turtle.select(i)
+            if turtle.placeDown() then
+                print("✅ Placed " .. blockID)
+                return true
+            else
+                print("❌ Placement failed, restocking " .. blockID)
+                if restock(block) then
+                    return placeBlock(block)
+                else
+                    print("❌ Out of " .. blockID .. ", skipping.")
+                    return false
+                end
+            end
+        end
+    end
+
+    print("❌ No " .. blockID .. " found in inventory. Restocking...")
+    if restock(block) then
+        return placeBlock(block)
+    else
+        print("❌ Out of " .. blockID .. ", skipping.")
+        return false
+    end
+end
+
+-- ✅ **Build Process (Fixes Block Names on the Fly)**
+buildSchematic = function()
+    for _, blockData in ipairs(blocks) do
+        local blockType = blockData[1] -- Keep original block names (e.g., "white_wool")
+
+        moveTo(blockData)
+        while not placeBlock(blockType) do
+            print("🔄 Retrying placement of " .. blockType .. " after restock")
+        end
+    end
+    print("✅ Build completed successfully!")
+end
+
+-- ✅ **Start the Build**
+buildSchematic()
