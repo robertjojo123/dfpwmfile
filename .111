@@ -1,0 +1,189 @@
+-- Position Tracking
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0} -- Position before leaving for restock
+
+-- Block Data (Inside Script)
+local blocks = {
+    {x=0, y=0, z=0, 'white_wool'},
+    {x=1, y=0, z=0, 'clay'},
+    {x=2, y=0, z=0, 'dirt'},
+    {x=3, y=0, z=0, 'grass_block'},
+    {x=4, y=0, z=0, 'stone'},
+    {x=5, y=0, z=0, 'white_wool'},
+    {x=6, y=0, z=0, 'clay'},
+    {x=7, y=0, z=0, 'dirt'}
+}
+
+-- Block ID Mappings
+local blockMappings = {
+    white_wool = "minecraft:white_wool",
+    clay = "minecraft:clay",
+    dirt = "minecraft:dirt",
+    grass_block = "minecraft:grass_block",
+    stone = "minecraft:stone"
+}
+
+-- Convert Block Names to Minecraft IDs
+local function convertBlockData(blocks)
+    local converted = {}
+    for _, block in ipairs(blocks) do
+        local blockName = block[1] 
+        local minecraftID = blockMappings[blockName]
+
+        if minecraftID then
+            table.insert(converted, {
+                x = block.x,
+                y = block.y,
+                z = block.z,
+                block = minecraftID
+            })
+        else
+            print("⚠️ WARNING: Unknown block '" .. tostring(blockName) .. "' at (" .. block.x .. ", " .. block.y .. ", " .. block.z .. ")")
+        end
+    end
+    return converted
+end
+
+blocks = convertBlockData(blocks)
+
+-- ✅ **Fixed Fuel & Material Chest Locations**
+local fuelChest = {x = -1, y = 0, z = -5, dir = 3} -- Correct position
+local materialChests = {
+    ["minecraft:white_wool"] = {x = -1, y = 0, z = -4, dir = 3},
+    ["minecraft:clay"] = {x = -1, y = 0, z = 0, dir = 3},
+    ["minecraft:dirt"] = {x = -1, y = 0, z = -1, dir = 3},
+    ["minecraft:grass_block"] = {x = -1, y = 0, z = -2, dir = 3},
+    ["minecraft:stone"] = {x = -1, y = 0, z = -3, dir = 3}
+}
+
+-- Allowed Fuel Source
+local fuelItem = "projecte:aeternus_fuel_block"
+
+-- ✅ **Fixed Movement Function**
+local function moveTo(target)
+    print("🚀 Moving to: X=" .. target.x .. " Z=" .. target.z)
+    
+    while pos.x ~= target.x do
+        if pos.x < target.x then while pos.dir ~= 1 do turtle.turnRight(); pos.dir = (pos.dir + 1) % 4 end
+        else while pos.dir ~= 3 do turtle.turnRight(); pos.dir = (pos.dir + 1) % 4 end end
+        turtle.forward()
+        pos.x = target.x
+    end
+    while pos.z ~= target.z do
+        if pos.z < target.z then while pos.dir ~= 0 do turtle.turnRight(); pos.dir = (pos.dir + 1) % 4 end
+        else while pos.dir ~= 2 do turtle.turnRight(); pos.dir = (pos.dir + 1) % 4 end end
+        turtle.forward()
+        pos.z = target.z
+    end
+end
+
+-- ✅ **Fixed Refuel Function**
+local function refuelTurtle()
+    if turtle.getFuelLevel() >= 1000 then return true end
+
+    print("⛽ Moving to refuel at Fuel Chest: X=" .. fuelChest.x .. " Z=" .. fuelChest.z)
+
+    -- **Save Last Position Before Leaving**
+    lastPos = {x = pos.x, y = pos.y, z = pos.z, dir = pos.dir}
+
+    -- **Move to Fuel Chest**
+    moveTo(fuelChest)
+
+    -- **Face Chest Properly**
+    while pos.dir ~= fuelChest.dir do turtle.turnLeft(); pos.dir = (pos.dir - 1) % 4 end
+
+    local fuelCount = 0
+    for _ = 1, 2 do  
+        if turtle.suck(1) then
+            local item = turtle.getItemDetail()
+            if item and item.name == fuelItem then
+                turtle.refuel()
+                fuelCount = fuelCount + 1
+            else
+                turtle.drop()
+            end
+        end
+    end
+
+    -- ✅ **Return to Last Position After Refueling**
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turtle.turnLeft(); pos.dir = (pos.dir - 1) % 4 end
+
+    return fuelCount == 2
+end
+
+-- ✅ **Fixed Restock Function**
+local function restock(block)
+    local chestPos = materialChests[block] -- Now correctly maps block to chest
+    if not chestPos then
+        print("❌ ERROR: No chest found for " .. block)
+        return false
+    end
+
+    print("🔄 Moving to Restock " .. block .. " at Chest: X=" .. chestPos.x .. " Z=" .. chestPos.z)
+    
+    -- **Save Last Position Before Leaving**
+    lastPos = {x = pos.x, y = pos.y, z = pos.z, dir = pos.dir}
+    
+    -- **Move to Correct Chest**
+    moveTo(chestPos)
+    while pos.dir ~= chestPos.dir do turtle.turnLeft(); pos.dir = (pos.dir - 1) % 4 end
+
+    if turtle.suck(64) then
+        print("✅ Successfully Restocked " .. block)
+        moveTo(lastPos) -- Return to last position
+        return true
+    end
+
+    print("❌ Out of " .. block)
+    return false
+end
+
+-- ✅ **Fixed Block Placement Function**
+local function placeBlock(block)
+    if turtle.getFuelLevel() < 1000 then
+        if not refuelTurtle() then return false end
+    end
+
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == block then
+            turtle.select(i)
+            if turtle.placeDown() then
+                print("✅ Placed " .. block)
+                return true
+            else
+                print("❌ Placement failed, restocking " .. block)
+                if restock(block) then
+                    return placeBlock(block) 
+                else
+                    print("❌ Out of " .. block .. ", skipping.")
+                    return false
+                end
+            end
+        end
+    end
+
+    print("❌ No " .. block .. " found in inventory. Restocking...")
+    if restock(block) then
+        return placeBlock(block) 
+    else
+        print("❌ Out of " .. block .. ", skipping.")
+        return false
+    end
+end
+
+-- ✅ **Fixed Build Process**
+local function buildSchematic()
+    for _, blockData in ipairs(blocks) do
+        moveTo(blockData)
+
+        while not placeBlock(blockData.block) do
+            print("🔄 Retrying " .. blockData.block .. " after restock")
+        end
+    end
+    print("✅ Build completed successfully!")
+end
+
+-- ✅ **Start the Build Process**
+buildSchematic()
