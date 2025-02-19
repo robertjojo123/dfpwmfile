@@ -27,16 +27,16 @@ local validBlocks = {
 -- **Only Allowed Fuel Source**
 local fuelItem = "projecte:aeternus_fuel_block" -- Aeternus Fuel Block
 
--- Store Blocks to be Built
+-- **Use Your Exact Block Format**
 local blocks = {
-    {x=0, y=0, z=0, block="minecraft:white_wool"},
-    {x=1, y=0, z=0, block="minecraft:clay"},
-    {x=2, y=0, z=0, block="minecraft:dirt"},
-    {x=3, y=0, z=0, block="minecraft:grass_block"},
-    {x=4, y=0, z=0, block="minecraft:stone"},
-    {x=5, y=0, z=0, block="minecraft:white_wool"},
-    {x=6, y=0, z=0, block="minecraft:clay"},
-    {x=7, y=0, z=0, block="minecraft:dirt"}
+    {x=0, y=0, z=0, 'white_wool'},
+    {x=1, y=0, z=0, 'clay'},
+    {x=2, y=0, z=0, 'dirt'},
+    {x=3, y=0, z=0, 'grass_block'},
+    {x=4, y=0, z=0, 'stone'},
+    {x=5, y=0, z=0, 'white_wool'},
+    {x=6, y=0, z=0, 'clay'},
+    {x=7, y=0, z=0, 'dirt'}
 }
 
 -- Forward Declare All Functions
@@ -149,60 +149,19 @@ restock = function(block)
     return correctBlockName ~= nil
 end
 
--- ✅ **Block Placement Function**
-placeBlock = function(block)
-    if turtle.getFuelLevel() < 1000 then
-        if not refuelTurtle() then return false end
-    end
-
-    local actualBlock = stockedBlocks[block] or "minecraft:" .. block
-
-    -- Find and select the correct slot
-    local blockFound = false
-    for i = 1, 16 do
-        local item = turtle.getItemDetail(i)
-        if item and item.name == actualBlock then
-            turtle.select(i)
-            blockFound = true
-            break
-        end
-    end
-
-    if not blockFound then
-        print("❌ Block not found in inventory: " .. actualBlock)
-        if restock(block) then
-            return placeBlock(block) -- Retry placement after restock
-        else
-            print("❌ Out of " .. block .. ". Skipping placement.")
-            return false
-        end
-    end
-
-    -- Attempt to place the block
-    if not turtle.placeDown() then
-        print("⚠️ First placement attempt failed. Retrying...")
-        sleep(0.5)
-        if not turtle.placeDown() then
-            print("❌ Unable to place " .. actualBlock .. " after retry.")
-            return false
-        end
-    end
-
-    print("✅ Successfully placed " .. actualBlock)
-    return true
-end
-
--- ✅ **Run the Build Process**
+-- ✅ **Building Function**
 buildSchematic = function()
     for _, blockData in ipairs(blocks) do
+        local blockType = "minecraft:" .. blockData[1]  -- Fix how block type is stored
         moveTo(blockData)
-        if validBlocks[blockData.block] then
-            placeBlock(blockData.block)
+        if validBlocks[blockType] then
+            placeBlock(blockType)
         else
-            print("⚠️ Skipping invalid block type: " .. blockData.block)
+            print("⚠️ Skipping invalid block type: " .. blockType)
         end
     end
     print("✅ Build completed successfully!")
 end
 
+-- ✅ **Run the Build Process**
 buildSchematic()
