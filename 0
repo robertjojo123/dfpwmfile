@@ -1,0 +1,210 @@
+-- Position Tracking
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0}
+
+-- Fuel & Material Chest Locations
+local fuelChest = {x = -1, y = 0, z = -5}
+local materialChests = {
+    ["minecraft:white_wool"] = {x = -1, y = 0, z = -4},
+    ["minecraft:clay"] = {x = -1, y = 0, z = 0},
+    ["minecraft:dirt"] = {x = -1, y = 0, z = -1},
+    ["minecraft:grass_block"] = {x = -1, y = 0, z = -2},
+    ["minecraft:stone"] = {x = -1, y = 0, z = -3}
+}
+
+-- Track Correct Block Names When Restocking
+local stockedBlocks = {}
+
+-- Valid Blocks
+local validBlocks = {
+    ["minecraft:white_wool"] = true,
+    ["minecraft:clay"] = true,
+    ["minecraft:dirt"] = true,
+    ["minecraft:grass_block"] = true,
+    ["minecraft:stone"] = true
+}
+
+-- **Only Allowed Fuel Source**
+local fuelItem = "projecte:aeternus_fuel_block" -- Aeternus Fuel Block
+
+-- **Use Your Exact Block Format**
+local blocks = {
+    {x=0, y=0, z=0, 'white_wool'},
+    {x=1, y=0, z=0, 'clay'},
+    {x=2, y=0, z=0, 'dirt'},
+    {x=3, y=0, z=0, 'grass_block'},
+    {x=4, y=0, z=0, 'stone'},
+    {x=5, y=0, z=0, 'white_wool'},
+    {x=6, y=0, z=0, 'clay'},
+    {x=7, y=0, z=0, 'dirt'}
+}
+
+-- Forward Declare All Functions
+local savePosition, returnToLastPosition, turnLeft, turnRight, moveForward, moveTo
+local restock, refuelTurtle, placeBlock, buildSchematic
+
+-- Position Saving & Returning
+savePosition = function()
+    lastPos.x, lastPos.y, lastPos.z, lastPos.dir = pos.x, pos.y, pos.z, pos.dir
+end
+
+returnToLastPosition = function()
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turnRight() end
+end
+
+-- Movement Functions
+turnLeft = function() turtle.turnLeft(); pos.dir = (pos.dir - 1) % 4 end
+turnRight = function() turtle.turnRight(); pos.dir = (pos.dir + 1) % 4 end
+
+moveForward = function()
+    if turtle.forward() then
+        if pos.dir == 0 then pos.z = pos.z + 1
+        elseif pos.dir == 1 then pos.x = pos.x + 1
+        elseif pos.dir == 2 then pos.z = pos.z - 1
+        elseif pos.dir == 3 then pos.x = pos.x - 1
+        end
+    end
+end
+
+moveTo = function(target)
+    while pos.x ~= target.x do
+        if pos.x < target.x then while pos.dir ~= 1 do turnRight() end
+        else while pos.dir ~= 3 do turnRight() end end
+        moveForward()
+    end
+    while pos.z ~= target.z do
+        if pos.z < target.z then while pos.dir ~= 0 do turnRight() end
+        else while pos.dir ~= 2 do turnRight() end end
+        moveForward()
+    end
+end
+
+-- ✅ **Refuels Twice with Aeternus Fuel Blocks**
+refuelTurtle = function()
+    if turtle.getFuelLevel() >= 1000 then return true end -- No need to refuel
+
+    print("⛽ Low fuel detected! Moving to refuel.")
+    savePosition()
+    moveTo(fuelChest)
+    while pos.dir ~= 3 do turnLeft() end
+
+    local fuelCount = 0
+
+    for _ = 1, 3 do  -- Try up to 3 times
+        for _ = 1, 2 do -- Grab 2 fuel blocks
+            if turtle.suck(1) then
+                local item = turtle.getItemDetail()
+                if item and item.name == fuelItem then
+                    print("🔥 Using Aeternus Fuel Block to refuel.")
+                    turtle.refuel()
+                    fuelCount = fuelCount + 1
+                else
+                    print("❌ Wrong item received, returning it!")
+                    turtle.drop() -- Drop non-fuel items
+                end
+            end
+        end
+
+        if fuelCount == 2 then
+            print("✅ Successfully refueled with 2 Aeternus Fuel Blocks!")
+            break
+        end
+    end
+
+    returnToLastPosition()
+    return fuelCount == 2
+end
+
+-- ✅ **Restocking Function**
+restock = function(block)
+    local chestPos = materialChests[block]
+    if not chestPos then 
+        print("❌ No chest found for block: " .. block)
+        return false 
+    end
+
+    savePosition()
+    moveTo(chestPos)
+    while pos.dir ~= 3 do turnLeft() end
+
+    local correctBlockName = nil
+
+    for _ = 1, 3 do -- Try up to 3 times
+        if turtle.suck(64) then
+            local item = turtle.getItemDetail()
+            if item and item.name == "minecraft:" .. block then
+                correctBlockName = item.name
+                print("✅ Correctly restocked " .. correctBlockName)
+                stockedBlocks[block] = correctBlockName -- ✅ Store correct block name
+                break
+            else
+                print("❌ Wrong item sucked, returning it!")
+                turtle.drop()
+            end
+        end
+    end
+
+    returnToLastPosition()
+    return correctBlockName ~= nil
+end
+
+-- ✅ **Block Placement Function**
+placeBlock = function(block)
+    if turtle.getFuelLevel() < 1000 then
+        if not refuelTurtle() then return false end
+    end
+
+    local actualBlock = stockedBlocks[block] or "minecraft:" .. block
+
+    -- Find and select the correct slot
+    local blockFound = false
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == actualBlock then
+            turtle.select(i)
+            blockFound = true
+            break
+        end
+    end
+
+    if not blockFound then
+        print("❌ Block not found in inventory: " .. actualBlock)
+        if restock(block) then
+            return placeBlock(block) -- Retry placement after restock
+        else
+            print("❌ Out of " .. block .. ". Skipping placement.")
+            return false
+        end
+    end
+
+    -- Attempt to place the block
+    if not turtle.placeDown() then
+        print("⚠️ First placement attempt failed. Retrying...")
+        sleep(0.5)
+        if not turtle.placeDown() then
+            print("❌ Unable to place " .. actualBlock .. " after retry.")
+            return false
+        end
+    end
+
+    print("✅ Successfully placed " .. actualBlock)
+    return true
+end
+
+-- ✅ **Building Function**
+buildSchematic = function()
+    for _, blockData in ipairs(blocks) do
+        local blockType = "minecraft:" .. blockData[1]  -- Fix how block type is stored
+        moveTo(blockData)
+        if validBlocks[blockType] then
+            placeBlock(blockType)
+        else
+            print("⚠️ Skipping invalid block type: " .. blockType)
+        end
+    end
+    print("✅ Build completed successfully!")
+end
+
+-- ✅ **Run the Build Process**
+buildSchematic()
