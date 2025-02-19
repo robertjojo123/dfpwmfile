@@ -1,0 +1,214 @@
+-- Position Tracking
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0}
+
+-- Fuel & Material Chest Locations
+local fuelChest = {x = -1, y = 0, z = -5}
+local materialChests = {
+    ["minecraft:white_wool"] = {x = -1, y = 0, z = -4},
+    ["minecraft:clay"] = {x = -1, y = 0, z = 0},
+    ["minecraft:dirt"] = {x = -1, y = 0, z = -1},
+    ["minecraft:grass_block"] = {x = -1, y = 0, z = -2},
+    ["minecraft:stone"] = {x = -1, y = 0, z = -3}
+}
+
+-- Track Correct Block Names When Restocking
+local stockedBlocks = {}
+
+-- Valid Blocks
+local validBlocks = {
+    ["minecraft:white_wool"] = true,
+    ["minecraft:clay"] = true,
+    ["minecraft:dirt"] = true,
+    ["minecraft:grass_block"] = true,
+    ["minecraft:stone"] = true
+}
+
+-- Forward Declare All Functions
+local fixBlockData, savePosition, returnToLastPosition
+local turnLeft, turnRight, moveForward, moveTo
+local restock, placeBlock, buildSchematic
+
+-- Function to Convert Incorrect Block Data
+fixBlockData = function(rawBlocks)
+    local correctedBlocks = {}
+    for _, blockData in ipairs(rawBlocks) do
+        local blockName = blockData[1] or blockData.block
+        table.insert(correctedBlocks, {
+            x = blockData.x,
+            y = blockData.y,
+            z = blockData.z,
+            block = "minecraft:" .. blockName
+        })
+    end
+    return correctedBlocks
+end
+
+-- Position Saving & Returning
+savePosition = function()
+    lastPos.x, lastPos.y, lastPos.z, lastPos.dir = pos.x, pos.y, pos.z, pos.dir
+end
+
+returnToLastPosition = function()
+    moveTo(lastPos)
+    while pos.dir ~= lastPos.dir do turnRight() end
+end
+
+-- Movement Functions
+turnLeft = function() turtle.turnLeft(); pos.dir = (pos.dir - 1) % 4 end
+turnRight = function() turtle.turnRight(); pos.dir = (pos.dir + 1) % 4 end
+
+moveForward = function()
+    if turtle.forward() then
+        if pos.dir == 0 then pos.z = pos.z + 1
+        elseif pos.dir == 1 then pos.x = pos.x + 1
+        elseif pos.dir == 2 then pos.z = pos.z - 1
+        elseif pos.dir == 3 then pos.x = pos.x - 1
+        end
+    end
+end
+
+moveTo = function(target)
+    while pos.x ~= target.x do
+        if pos.x < target.x then while pos.dir ~= 1 do turnRight() end
+        else while pos.dir ~= 3 do turnRight() end end
+        moveForward()
+    end
+    while pos.z ~= target.z do
+        if pos.z < target.z then while pos.dir ~= 0 do turnRight() end
+        else while pos.dir ~= 2 do turnRight() end end
+        moveForward()
+    end
+end
+
+-- Restocking Function (Limited to 2 stacks, Records Block Name)
+restock = function(block)
+    local chestPos = materialChests[block]
+    if not chestPos then 
+        print("❌ No chest found for block: " .. block)
+        return false 
+    end
+
+    savePosition()
+    moveTo(chestPos)
+    while pos.dir ~= 3 do turnLeft() end
+
+    local totalSucked = 0
+    local actualBlockName = nil
+
+    for _ = 1, 2 do -- Limit to 2 stacks (128 max)
+        if turtle.suck(64) then
+            local item = turtle.getItemDetail()
+            if item then
+                actualBlockName = item.name
+                if validBlocks[actualBlockName] then 
+                    totalSucked = totalSucked + item.count
+                    stockedBlocks[block] = actualBlockName -- Save correct name
+                    print("✅ Restocked: " .. actualBlockName)
+                    if totalSucked >= 128 then break end
+                else
+                    turtle.drop() -- Drop incorrect items
+                end
+            end
+        end
+    end
+
+    returnToLastPosition()
+    return totalSucked > 0
+end
+
+-- Block Placement Function (Now Triggers Restock When Needed)
+placeBlock = function(block)
+    local actualBlock = stockedBlocks[block] or block
+
+    if turtle.getFuelLevel() < 100 then
+        print("⛽ Low fuel! Moving to refuel.")
+        moveTo(fuelChest)
+        while pos.dir ~= 3 do turnLeft() end
+        if turtle.suck(1) then 
+            turtle.refuel() 
+            print("✅ Refueled!")
+        else 
+            print("❌ Fuel chest is empty! Build halted.")
+            return false 
+        end
+    end
+
+    -- Check if there's already a block below
+    if turtle.detectDown() then
+        local success, data = turtle.inspectDown()
+        if success and data.name == actualBlock then
+            print("⚠️ Block already present, skipping placement.")
+            return true
+        end
+    end
+
+    -- Find and select the correct slot
+    local blockFound = false
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == actualBlock then
+            turtle.select(i)
+            blockFound = true
+            break
+        end
+    end
+
+    -- 🔴 FIXED: If block isn't found, try to restock before skipping!
+    if not blockFound then
+        print("❌ Block not found in inventory: " .. actualBlock)
+        print("🔄 Attempting to restock...")
+        if restock(block) then
+            return placeBlock(block) -- Retry placement after restock
+        else
+            print("❌ Out of " .. block .. ". Skipping placement.")
+            return false
+        end
+    end
+
+    -- Attempt to place the block
+    local placed = turtle.placeDown()
+    if not placed then
+        print("⚠️ First placement attempt failed. Retrying...")
+        sleep(0.5)
+        placed = turtle.placeDown()
+    end
+
+    if placed then
+        print("✅ Successfully placed " .. actualBlock)
+        return true
+    else
+        print("❌ Unable to place " .. actualBlock .. " after retry.")
+        return false
+    end
+end
+
+-- Build Function
+buildSchematic = function(blocks)
+    local fixedBlocks = fixBlockData(blocks)
+
+    for _, blockData in ipairs(fixedBlocks) do
+        moveTo(blockData)
+        if validBlocks[blockData.block] then
+            if not placeBlock(blockData.block) then
+                print("⚠️ Skipping block at X:" .. blockData.x .. ", Z:" .. blockData.z)
+            end
+        end
+    end
+    print("✅ Build completed successfully!")
+end
+
+-- Sample Blocks Data
+local rawBlocks = {
+    {x=0, y=0, z=0, 'white_wool'},
+    {x=1, y=0, z=0, 'clay'},
+    {x=2, y=0, z=0, 'dirt'},
+    {x=3, y=0, z=0, 'grass_block'},
+    {x=4, y=0, z=0, 'stone'},
+    {x=5, y=0, z=0, 'white_wool'},
+    {x=6, y=0, z=0, 'clay'},
+    {x=7, y=0, z=0, 'dirt'}
+}
+
+-- Run the build
+buildSchematic(rawBlocks)
