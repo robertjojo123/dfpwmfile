@@ -1,0 +1,142 @@
+-- Position Tracking
+local pos = {x = 0, y = 0, z = 0, dir = 0} -- dir: 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
+local lastPos = {x = 0, y = 0, z = 0, dir = 0}
+
+-- Fuel & Material Chest Locations
+local fuelChest = {x = -1, y = 0, z = -5}
+local materialChests = {
+    ["minecraft:white_wool"] = {x = -1, y = 0, z = -4}
+}
+
+-- Valid Blocks
+local validBlocks = { ["minecraft:white_wool"] = true }
+
+-- Function to Convert Incorrect Block Data
+local function fixBlockData(rawBlocks)
+    local correctedBlocks = {}
+    for _, blockData in ipairs(rawBlocks) do
+        local blockName = blockData[1] or blockData.block -- Extract block name properly
+        table.insert(correctedBlocks, {
+            x = blockData.x,
+            y = blockData.y,
+            z = blockData.z,
+            block = "minecraft:" .. blockName -- Ensure proper block format
+        })
+    end
+    return correctedBlocks
+end
+
+-- Movement Functions
+local function turnLeft() turtle.turnLeft(); pos.dir = (pos.dir - 1) % 4 end
+local function turnRight() turtle.turnRight(); pos.dir = (pos.dir + 1) % 4 end
+local function moveForward()
+    if turtle.forward() then
+        if pos.dir == 0 then pos.z = pos.z + 1
+        elseif pos.dir == 1 then pos.x = pos.x + 1
+        elseif pos.dir == 2 then pos.z = pos.z - 1
+        elseif pos.dir == 3 then pos.x = pos.x - 1
+        end
+    end
+end
+
+local function moveTo(target)
+    while pos.x ~= target.x do
+        if pos.x < target.x then while pos.dir ~= 1 do turnRight() end
+        else while pos.dir ~= 3 do turnRight() end end
+        moveForward()
+    end
+    while pos.z ~= target.z do
+        if pos.z < target.z then while pos.dir ~= 0 do turnRight() end
+        else while pos.dir ~= 2 do turnRight() end end
+        moveForward()
+    end
+end
+
+-- Restocking Function (Limited to 2 stacks)
+local function restock(block)
+    local chestPos = materialChests[block]
+    if not chestPos then return false end
+    moveTo(chestPos)
+    while pos.dir ~= 3 do turnLeft() end
+
+    local totalSucked = 0
+    for _ = 1, 2 do -- Limit restock to 2 stacks (128 max)
+        if turtle.suck(64) then
+            local item = turtle.getItemDetail()
+            if item and item.name == block then 
+                totalSucked = totalSucked + item.count
+                if totalSucked >= 128 then break end
+            else
+                turtle.drop() -- Drop incorrect items
+            end
+        end
+    end
+
+    returnToLastPosition()
+    return totalSucked > 0 -- Return true if restocked successfully
+end
+
+-- Block Placement Function
+local function placeBlock(block)
+    if turtle.getFuelLevel() < 100 then
+        moveTo(fuelChest)
+        while pos.dir ~= 3 do turnLeft() end
+        if turtle.suck(1) then turtle.refuel() else return false end
+    end
+
+    if turtle.detectDown() then return true end
+
+    for i = 1, 16 do
+        local item = turtle.getItemDetail(i)
+        if item and item.name == block then
+            turtle.select(i)
+            return turtle.placeDown()
+        end
+    end
+
+    if restock(block) then return placeBlock(block) end
+    return false
+end
+
+-- Build Function
+local function buildSchematic(blocks)
+    local fixedBlocks = fixBlockData(blocks) -- Fix input data
+
+    for _, blockData in ipairs(fixedBlocks) do
+        moveTo(blockData)
+        if validBlocks[blockData.block] then
+            if not placeBlock(blockData.block) then
+                print("⚠️ Stopping build due to placement failure.")
+                return
+            end
+        end
+    end
+    print("✅ Build completed successfully!")
+end
+
+-- Incorrectly Formatted Blocks Data (as provided)
+local rawBlocks = {
+    {x=0, y=0, z=0, 'white_wool'},
+    {x=0, y=0, z=1, 'white_wool'},
+    {x=0, y=0, z=2, 'white_wool'},
+    {x=0, y=0, z=3, 'white_wool'},
+    {x=0, y=0, z=4, 'white_wool'},
+    {x=0, y=0, z=5, 'white_wool'},
+    {x=0, y=0, z=6, 'white_wool'},
+    {x=0, y=0, z=7, 'white_wool'},
+    {x=0, y=0, z=8, 'white_wool'},
+    {x=0, y=0, z=9, 'white_wool'},
+    {x=0, y=0, z=10, 'white_wool'},
+    {x=0, y=0, z=11, 'white_wool'},
+    {x=0, y=0, z=12, 'white_wool'},
+    {x=0, y=0, z=13, 'white_wool'},
+    {x=0, y=0, z=14, 'white_wool'},
+    {x=0, y=0, z=15, 'white_wool'},
+    {x=1, y=0, z=0, 'white_wool'},
+    {x=1, y=0, z=1, 'white_wool'},
+    {x=1, y=0, z=2, 'white_wool'},
+    {x=1, y=0, z=3, 'white_wool'}
+}
+
+-- Run the build
+buildSchematic(rawBlocks)
