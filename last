@@ -77,7 +77,7 @@ local function moveTo(target)
     end
 end
 
--- ✅ **Final Fixed Restock Function**
+-- ✅ **Fixed Restock Function**
 local function restock(block)
     if not materialChests[block] then
         print("❌ ERROR: No chest found for " .. block)
