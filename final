@@ -1,9 +1,9 @@
 -- ✅ **Function Forward Declarations**
-local moveTo, savePosition, returnToLastPosition, restock, placeBlock, buildSchematic
+local moveTo, savePosition, returnToLastPosition, restock, placeBlock, buildSchematic, refuelTurtle
 
 -- ✅ **Position Tracking**
 local pos = {x = 0, y = 0, z = 0, dir = 0} -- 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
-local lastPos = {x = 0, y = 0, z = 0, dir = 0} -- Last saved position before leaving for restock
+local lastPos = {x = 0, y = 0, z = 0, dir = 0} -- Last saved position before leaving for refuel/restock
 
 -- ✅ **Material Chest Locations**
 local materialChests = {
@@ -13,6 +13,10 @@ local materialChests = {
     ["minecraft:grass"] = {x = -1, y = 0, z = -2, dir = 3}, -- Auto-fixes grass_block to minecraft:grass
     ["minecraft:stone"] = {x = -1, y = 0, z = -3, dir = 3}
 }
+
+-- ✅ **Fuel Chest Location**
+local fuelChest = {x = -1, y = 0, z = -5, dir = 3} -- Fuel chest location
+local fuelItem = "projecte:aeternus_fuel_block" -- Correct fuel item
 
 -- ✅ **Block Data for Schematic**
 local blocks = {
@@ -85,9 +89,38 @@ returnToLastPosition = function()
     while pos.dir ~= lastPos.dir do turnRight() end
 end
 
--- ✅ **Restock Function (Fixes White Wool & Grass Block Automatically)**
+-- ✅ **Refuel Function (Uses 2 Aeternus Fuel Blocks)**
+refuelTurtle = function()
+    if turtle.getFuelLevel() >= 1000 then return true end -- Skip if enough fuel
+
+    print("⛽ Low fuel! Moving to refuel.")
+
+    savePosition()
+    moveTo(fuelChest)
+    while pos.dir ~= fuelChest.dir do turnLeft() end
+
+    local refueled = 0
+    for _ = 1, 2 do -- Attempt to grab and use 2 Aeternus Fuel Blocks
+        if turtle.suck(1) then
+            turtle.refuel()
+            refueled = refueled + 1
+        end
+    end
+
+    if refueled > 0 then
+        print("✅ Refueled with " .. refueled .. " Aeternus Fuel Blocks.")
+    else
+        print("❌ Fuel chest is empty! Build halted.")
+        return false
+    end
+
+    returnToLastPosition()
+    return true
+end
+
+-- ✅ **Restock Function**
 restock = function(block)
-    local blockID = fixBlockName(block) -- Convert "white_wool" to "minecraft:wool" and "grass_block" to "minecraft:grass"
+    local blockID = fixBlockName(block)
     local chestPos = materialChests[blockID]
 
     if not chestPos then
@@ -103,9 +136,9 @@ restock = function(block)
 
     local success = false
 
-    for _ = 1, 27 do -- Try pulling from chest multiple times
+    for _ = 1, 27 do
         if turtle.suck(64) then
-            for i = 1, 16 do -- Check all slots to see where the item landed
+            for i = 1, 16 do
                 local item = turtle.getItemDetail(i)
                 if item and item.name == blockID then
                     print("✅ Successfully Restocked: " .. blockID)
@@ -125,9 +158,11 @@ restock = function(block)
     return success
 end
 
--- ✅ **Block Placement Function (Uses Fixed Block Names)**
+-- ✅ **Block Placement Function**
 placeBlock = function(block)
-    local blockID = fixBlockName(block) -- Convert "white_wool" to "minecraft:wool" and "grass_block" to "minecraft:grass"
+    if not refuelTurtle() then return false end -- Check fuel before placing
+
+    local blockID = fixBlockName(block)
 
     for i = 1, 16 do
         local item = turtle.getItemDetail(i)
@@ -157,14 +192,12 @@ placeBlock = function(block)
     end
 end
 
--- ✅ **Build Process (Fixes Block Names on the Fly)**
+-- ✅ **Build Process**
 buildSchematic = function()
     for _, blockData in ipairs(blocks) do
-        local blockType = blockData[1] -- Keep original block names (e.g., "white_wool")
-
         moveTo(blockData)
-        while not placeBlock(blockType) do
-            print("🔄 Retrying placement of " .. blockType .. " after restock")
+        while not placeBlock(blockData[1]) do
+            print("🔄 Retrying placement of " .. blockData[1] .. " after restock")
         end
     end
     print("✅ Build completed successfully!")
